@@ -4,7 +4,7 @@ from datetime import datetime
 from PySide6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QDateEdit
 )
-from PySide6.QtCore import QTimer, Qt, QDate
+from PySide6.QtCore import QTimer, Qt, QDate, QThread, Signal
 from PySide6.QtGui import QImage, QPixmap
 
 from .camera import Camera, CameraError
@@ -12,6 +12,39 @@ from .face_engine import FaceEngine
 from .database import FaceDatabase
 from .nfc_reader import NFCReader
 from .theme import Theme, apply_subtle_shadow, fade_in
+
+
+# ==========================
+# Background Recognition Worker
+# ==========================
+class RecognitionWorker(QThread):
+    results_ready = Signal(list)
+
+    def __init__(self, face_engine, db):
+        super().__init__()
+        self.face_engine = face_engine
+        self.db = db
+        self.frame = None
+        self.is_running = True
+
+    def run(self):
+        while self.is_running:
+            if self.frame is not None:
+                frame_to_process = self.frame.copy()
+                self.frame = None
+                results = self.face_engine.recognize_faces_with_boxes(frame_to_process, self.db)
+                self.results_ready.emit(results)
+            else:
+                self.msleep(10)
+
+    def process_frame(self, frame):
+        if self.frame is None:
+            self.frame = frame
+
+    def stop(self):
+        self.is_running = False
+        self.quit()
+        self.wait()
 
 
 # ==========================
@@ -177,10 +210,24 @@ class HomePage(QWidget):
         self.scan_dir = 1
         self.last_status_text = ""
 
+        # Setup Async Worker
+        self.recognition_worker = RecognitionWorker(self.face_engine, self.db)
+        self.recognition_worker.results_ready.connect(self.on_recognition_results)
+        self.recognition_worker.start()
+
+    def on_recognition_results(self, results):
+        self.last_results = results
+
     def start_timer(self):
         """Activate camera, hide button, start frame updates"""
         if hasattr(self, 'activate_button'):
             self.activate_button.hide()
+            
+        # Reset state when returning to scanning page
+        self.last_results = []
+        self.unknown_face_frames = 0
+        self.unknown_cooldown_timer.start(5000) # Give 5 seconds grace period when returning
+        
         try:
             self.camera.open()
             self.timer.start(30)  # ~33fps
@@ -233,11 +280,8 @@ class HomePage(QWidget):
             self.status_label.setText("Camera error")
             return
 
-        # Recognize faces (every 10 frames to keep the UI smooth)
-        self.frame_count += 1
-        if self.frame_count % 10 == 0:
-            # This heavy lifting is now faster due to 480x360 downsampling in utils.py
-            self.last_results = self.face_engine.recognize_faces_with_boxes(frame, self.db)
+        # Send frame to background worker (drops frames if worker is busy, keeping UI smooth)
+        self.recognition_worker.process_frame(frame)
 
         results = self.last_results
         # Drawing is fast and runs every frame for a responsive HUD
@@ -285,7 +329,7 @@ class HomePage(QWidget):
                 if not self.unknown_cooldown_timer.isActive():
                     self.unknown_face_frames += 1
                     self.last_unknown_encoding = result.get('encoding')
-                    if self.unknown_face_frames >= 15:
+                    if self.unknown_face_frames >= 90:  # Require 3 seconds of continuous unknown face
                         self.prompt_unknown_registration()
                         self.unknown_face_frames = 0
                 else:
@@ -304,11 +348,11 @@ class HomePage(QWidget):
             self.scan_dir *= -1
 
         overlay = frame.copy()
-        cv2.line(overlay, (0, self.scan_line_y), (fw, self.scan_line_y), (250, 165, 96), 1)
+        cv2.line(overlay, (0, self.scan_line_y), (fw, self.scan_line_y), (252, 132, 192), 1)
         cv2.addWeighted(overlay, 0.25, frame, 0.75, 0, frame)
 
-        # Corner brackets (soft blue)
-        c, t, l, m = (250, 165, 96), 1, 32, 16
+        # Corner brackets (Theme Primary)
+        c, t, l, m = (252, 132, 192), 1, 32, 16
         cv2.line(frame, (m, m), (m+l, m), c, t)
         cv2.line(frame, (m, m), (m, m+l), c, t)
         cv2.line(frame, (fw-m, m), (fw-m-l, m), c, t)

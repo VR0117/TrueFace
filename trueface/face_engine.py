@@ -83,32 +83,66 @@ class FaceEngine:
             name = result['name']
             conf = result.get('confidence', 0)
             
-            # Color: Theme Primary (Cyan) for known, Theme Danger (Red) for unknown
+            # Color: Theme Success (Cyan/Teal) for known, Theme Danger (Neon Red) for unknown
             if name != 'Unknown' and conf > 0.7:
-                color = (248, 189, 56)  # BGR for #38bdf8
+                color = (191, 212, 45)  # BGR for #2dd4bf (SUCCESS)
             else:
-                color = (94, 63, 244)   # BGR for #f43f5e
+                color = (94, 63, 244)   # BGR for #f43f5e (DANGER)
             
-            # Draw rounded rectangle
-            self._draw_rounded_rect(frame_copy, (x1, y1), (x2, y2), color, thickness=3, radius=20)
+            # Draw modern corner markers
+            self._draw_corner_markers(frame_copy, (x1, y1), (x2, y2), color, thickness=3, length=25)
             
-            # Draw name label
-            label = name.upper()
-            font = cv2.FONT_HERSHEY_SIMPLEX # Bolder font
-            font_scale = 0.7 # Larger font
-            text_thickness = 2 # Thicker text
+            # Draw name label (modern pill style)
+            label = f" {name.upper()} "
+            font = cv2.FONT_HERSHEY_DUPLEX
+            font_scale = 0.55
+            text_thickness = 1
             (text_w, text_h), baseline = cv2.getTextSize(label, font, font_scale, text_thickness)
             
-            # Draw label box (slightly larger padding)
-            cv2.rectangle(frame_copy, (x1, y1 - text_h - 20), (x1 + text_w + 15, y1), color, -1)
-            cv2.putText(frame_copy, label, (x1 + 7, y1 - 10), font, font_scale, (255, 255, 255), text_thickness, cv2.LINE_AA)
+            # Pill geometry (centered above box)
+            center_x = x1 + (x2 - x1) // 2
+            pill_x1 = center_x - text_w // 2 - 10
+            pill_y1 = y1 - text_h - 20
+            pill_x2 = center_x + text_w // 2 + 10
+            pill_y2 = y1 - 5
+            
+            # Draw filled pill background
+            self._draw_rounded_rect(frame_copy, (pill_x1, pill_y1), (pill_x2, pill_y2), color, thickness=-1, radius=8)
+            cv2.putText(frame_copy, label, (pill_x1 + 10, pill_y2 - 6), font, font_scale, (255, 255, 255), text_thickness, cv2.LINE_AA)
         
         return frame_copy
+
+    def _draw_corner_markers(self, img, pt1, pt2, color, thickness, length):
+        x1, y1 = pt1
+        x2, y2 = pt2
+        
+        # Top-left
+        cv2.line(img, (x1, y1), (x1 + length, y1), color, thickness)
+        cv2.line(img, (x1, y1), (x1, y1 + length), color, thickness)
+        # Top-right
+        cv2.line(img, (x2, y1), (x2 - length, y1), color, thickness)
+        cv2.line(img, (x2, y1), (x2, y1 + length), color, thickness)
+        # Bottom-left
+        cv2.line(img, (x1, y2), (x1 + length, y2), color, thickness)
+        cv2.line(img, (x1, y2), (x1, y2 - length), color, thickness)
+        # Bottom-right
+        cv2.line(img, (x2, y2), (x2 - length, y2), color, thickness)
+        cv2.line(img, (x2, y2), (x2, y2 - length), color, thickness)
 
     def _draw_rounded_rect(self, img, pt1, pt2, color, thickness, radius):
         x1, y1 = pt1
         x2, y2 = pt2
         
+        # If filled
+        if thickness < 0:
+            cv2.rectangle(img, (x1 + radius, y1), (x2 - radius, y2), color, -1)
+            cv2.rectangle(img, (x1, y1 + radius), (x2, y2 - radius), color, -1)
+            cv2.circle(img, (x1 + radius, y1 + radius), radius, color, -1)
+            cv2.circle(img, (x2 - radius, y1 + radius), radius, color, -1)
+            cv2.circle(img, (x1 + radius, y2 - radius), radius, color, -1)
+            cv2.circle(img, (x2 - radius, y2 - radius), radius, color, -1)
+            return
+
         # Lines
         cv2.line(img, (x1 + radius, y1), (x2 - radius, y1), color, thickness)
         cv2.line(img, (x1 + radius, y2), (x2 - radius, y2), color, thickness)

@@ -23,10 +23,10 @@ class NeonButton(QPushButton):
             QPushButton {{
                 background-color: {Theme.PRIMARY_DIM};
                 color: {Theme.PRIMARY};
-                border: 1px solid rgba(96, 165, 250, 0.3);
-                border-radius: 12px;
+                border: 1px solid rgba(192, 132, 252, 0.4);
+                border-radius: 18px;
                 font-size: 16px;
-                font-weight: 600;
+                font-weight: bold;
                 letter-spacing: 1.5px;
             }}
             QPushButton:hover {{
@@ -81,12 +81,12 @@ class NeonButton(QPushButton):
         if self._glow > 0:
             painter = QPainter(self)
             painter.setRenderHint(QPainter.Antialiasing)
-            glow_color = QColor(96, 165, 250, int(120 * self._glow))
+            glow_color = QColor(192, 132, 252, int(120 * self._glow))
             pen = QPen(glow_color, 2)
             painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
             rect = self.rect().adjusted(1, 1, -1, -1)
-            painter.drawRoundedRect(rect, 12, 12)
+            painter.drawRoundedRect(rect, 18, 18)
 
 
 # -------------------------------------------------
@@ -126,12 +126,13 @@ class WelcomePage(QWidget):
 
         # Glass Card
         self.card = QFrame()
+        self.card.setObjectName("WelcomeCard")
         self.card.setFixedWidth(500)
         self.card.setStyleSheet(f"""
-            QFrame {{
-                background-color: rgba(19, 22, 31, 0.95);
-                border: 1px solid rgba(255, 255, 255, 0.04);
-                border-radius: 28px;
+            QFrame#WelcomeCard {{
+                background-color: rgba(24, 24, 27, 0.6);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 30px;
             }}
         """)
 
@@ -186,9 +187,9 @@ class WelcomePage(QWidget):
 
         # Deep gradient background
         bg = QLinearGradient(0, 0, self.width(), self.height())
-        bg.setColorAt(0.0, QColor("#06080f"))
-        bg.setColorAt(0.5, QColor("#0c0e14"))
-        bg.setColorAt(1.0, QColor("#06080f"))
+        bg.setColorAt(0.0, QColor("#09090b"))
+        bg.setColorAt(0.5, QColor("#18181b"))
+        bg.setColorAt(1.0, QColor("#09090b"))
         painter.fillRect(self.rect(), QBrush(bg))
 
         # Draw particles
@@ -205,7 +206,7 @@ class WelcomePage(QWidget):
             if p['y'] < -50: p['y'] = height + 50
             if p['y'] > height + 50: p['y'] = -50
 
-            painter.setBrush(QColor(96, 165, 250, int(p['alpha'] * 0.6)))
+            painter.setBrush(QColor(192, 132, 252, int(p['alpha'] * 0.6)))
             painter.setPen(Qt.NoPen)
             painter.drawEllipse(QPointF(p['x'], p['y']), p['size'], p['size'])
 
@@ -214,18 +215,20 @@ class WelcomePage(QWidget):
                 dist = math.hypot(p['x'] - other['x'], p['y'] - other['y'])
                 if 0 < dist < 120:
                     alpha = int(45 * (1 - dist / 120))
-                    painter.setPen(QPen(QColor(96, 165, 250, alpha), 0.7))
+                    painter.setPen(QPen(QColor(192, 132, 252, alpha), 0.7))
                     painter.drawLine(QPointF(p['x'], p['y']), QPointF(other['x'], other['y']))
                     painter.setPen(Qt.NoPen)
 
         # Bottom-right signature
-        painter.setPen(QColor(Theme.TEXT_MUTED))
-        painter.setFont(QFont(".AppleSystemUIFont", 9))
+        painter.setPen(QColor(Theme.TEXT_SEC))  # Brighter text color
+        font = QFont(".AppleSystemUIFont", 10, QFont.Bold) # Larger and bold
+        font.setLetterSpacing(QFont.AbsoluteSpacing, 1.5)
+        painter.setFont(font)
         text = "SECURED BY THEITIANS"
         metrics = painter.fontMetrics()
         painter.drawText(
-            self.width() - metrics.horizontalAdvance(text) - 20,
-            self.height() - 20,
+            self.width() - metrics.horizontalAdvance(text) - 25,
+            self.height() - 25,
             text
         )
 
