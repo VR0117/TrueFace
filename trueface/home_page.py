@@ -231,12 +231,14 @@ class HomePage(QWidget):
             self.status_label.setText("Camera error")
             return
 
-        # Recognize faces (every 5 frames to prevent lag)
+        # Recognize faces (every 10 frames to keep the UI smooth)
         self.frame_count += 1
-        if self.frame_count % 5 == 0:
+        if self.frame_count % 10 == 0:
+            # This heavy lifting is now faster due to 480x360 downsampling in utils.py
             self.last_results = self.face_engine.recognize_faces_with_boxes(frame, self.db)
 
         results = self.last_results
+        # Drawing is fast and runs every frame for a responsive HUD
         frame = self.face_engine.draw_face_results(frame, results)
 
         # Handle results

@@ -30,7 +30,8 @@ class FaceEngine:
             return results
         
         rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
-        face_locations = face_recognition.face_locations(rgb, model='hog')  # fast hog
+        # number_of_times_to_upsample=1 helps detect smaller (farther) faces
+        face_locations = face_recognition.face_locations(rgb, number_of_times_to_upsample=1, model='hog') 
         encodings = face_recognition.face_encodings(rgb, face_locations)
         all_embeddings = db.get_all_embeddings()
         all_names, all_encodings = zip(*all_embeddings) if all_embeddings else ([], [])
@@ -68,10 +69,11 @@ class FaceEngine:
         frame_copy = frame.copy()
         for result in results:
             # Convert face_recognition box (t,r,b,l) to cv2 (x,y,w,h) and scale to original size
+            # Now scaling from 480x360 (set in utils.py)
             top, right, bottom, left = result['box']
             orig_h, orig_w = frame_copy.shape[:2]
-            scale_x = orig_w / 640.0
-            scale_y = orig_h / 480.0
+            scale_x = orig_w / 480.0
+            scale_y = orig_h / 360.0
             
             x1 = int(left * scale_x)
             y1 = int(top * scale_y)
@@ -88,18 +90,18 @@ class FaceEngine:
                 color = (94, 63, 244)   # BGR for #f43f5e
             
             # Draw rounded rectangle
-            self._draw_rounded_rect(frame_copy, (x1, y1), (x2, y2), color, thickness=2, radius=15)
+            self._draw_rounded_rect(frame_copy, (x1, y1), (x2, y2), color, thickness=3, radius=20)
             
             # Draw name label
             label = name.upper()
-            font = cv2.FONT_HERSHEY_DUPLEX
-            font_scale = 0.5
-            text_thickness = 1
-            (text_w, text_h), _ = cv2.getTextSize(label, font, font_scale, text_thickness)
+            font = cv2.FONT_HERSHEY_SIMPLEX # Bolder font
+            font_scale = 0.7 # Larger font
+            text_thickness = 2 # Thicker text
+            (text_w, text_h), baseline = cv2.getTextSize(label, font, font_scale, text_thickness)
             
-            # Draw label box
-            cv2.rectangle(frame_copy, (x1, y1 - 22), (x1 + text_w + 10, y1), color, -1)
-            cv2.putText(frame_copy, label, (x1 + 5, y1 - 7), font, font_scale, (255, 255, 255), text_thickness, cv2.LINE_AA)
+            # Draw label box (slightly larger padding)
+            cv2.rectangle(frame_copy, (x1, y1 - text_h - 20), (x1 + text_w + 15, y1), color, -1)
+            cv2.putText(frame_copy, label, (x1 + 7, y1 - 10), font, font_scale, (255, 255, 255), text_thickness, cv2.LINE_AA)
         
         return frame_copy
 

@@ -9,28 +9,21 @@ def ensure_dirs():
 
 def preprocess_frame(frame):
     '''Preprocess frame for better face detection/recognition.
-    - CLAHE histogram equalization for lighting invariance.
-    - Gamma correction for contrast.
-    - Resize to 640x480 for speed.
+    - Resize to 480p for a good balance of speed/accuracy.
+    - CLAHE for lighting invariance.
     '''
     if frame is None:
         return None
     
-    # Resize for speed
-    frame = cv2.resize(frame, (640, 480))
+    # Resize to smaller dimensions for much faster processing
+    # 480x360 is often enough for dlib HOG
+    frame = cv2.resize(frame, (480, 360), interpolation=cv2.INTER_AREA)
     
-    # CLAHE on LAB L channel
+    # CLAHE on Grayscale or L channel (L is better for color consistency)
     lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8,8))
     lab[:,:,0] = clahe.apply(lab[:,:,0])
     frame = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-    
-    # Gamma correction
-    gamma = 1.2
-    inv_gamma = 1.0 / gamma
-    table = np.array([((i / 255.0) ** inv_gamma) * 255 
-                      for i in np.arange(0, 256)]).astype('uint8')
-    frame = cv2.LUT(frame, table)
     
     return frame
 
