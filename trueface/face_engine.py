@@ -61,7 +61,7 @@ class FaceEngine:
         return results[:1]  # Enforce only 1 person marking!
 
     def draw_face_results(self, frame: np.ndarray, results: list[dict]) -> np.ndarray:
-        '''Draw green/red circles + name/conf labels on ORIGINAL frame coords approx.'''
+        '''Draw rounded rectangles + name labels on ORIGINAL frame coords approx.'''
         if frame is None or not results:
             return frame
         
@@ -73,26 +73,51 @@ class FaceEngine:
             scale_x = orig_w / 640.0
             scale_y = orig_h / 480.0
             
-            x = int(left * scale_x)
-            y = int(top * scale_y)
-            w = int((right - left) * scale_x)
-            h = int((bottom - top) * scale_y)
+            x1 = int(left * scale_x)
+            y1 = int(top * scale_y)
+            x2 = int(right * scale_x)
+            y2 = int(bottom * scale_y)
             
             name = result['name']
             conf = result.get('confidence', 0)
-            label = f"{name} ({conf:.1%})"
             
-            # Color: Green known high conf, Red unknown/low
+            # Color: Theme Primary (Cyan) for known, Theme Danger (Red) for unknown
             if name != 'Unknown' and conf > 0.7:
-                color = (0, 255, 0)
+                color = (248, 189, 56)  # BGR for #38bdf8
             else:
-                color = (0, 0, 255)
+                color = (94, 63, 244)   # BGR for #f43f5e
             
-            radius = max(w, h) // 2 + 10
-            center = (x + w//2, y + h//2)
-            cv2.circle(frame_copy, center, radius, color, 4)
+            # Draw rounded rectangle
+            self._draw_rounded_rect(frame_copy, (x1, y1), (x2, y2), color, thickness=2, radius=15)
+            
+            # Draw name label
+            label = name.upper()
+            font = cv2.FONT_HERSHEY_DUPLEX
+            font_scale = 0.5
+            text_thickness = 1
+            (text_w, text_h), _ = cv2.getTextSize(label, font, font_scale, text_thickness)
+            
+            # Draw label box
+            cv2.rectangle(frame_copy, (x1, y1 - 22), (x1 + text_w + 10, y1), color, -1)
+            cv2.putText(frame_copy, label, (x1 + 5, y1 - 7), font, font_scale, (255, 255, 255), text_thickness, cv2.LINE_AA)
         
         return frame_copy
+
+    def _draw_rounded_rect(self, img, pt1, pt2, color, thickness, radius):
+        x1, y1 = pt1
+        x2, y2 = pt2
+        
+        # Lines
+        cv2.line(img, (x1 + radius, y1), (x2 - radius, y1), color, thickness)
+        cv2.line(img, (x1 + radius, y2), (x2 - radius, y2), color, thickness)
+        cv2.line(img, (x1, y1 + radius), (x1, y2 - radius), color, thickness)
+        cv2.line(img, (x2, y1 + radius), (x2, y2 - radius), color, thickness)
+        
+        # Corners
+        cv2.ellipse(img, (x1 + radius, y1 + radius), (radius, radius), 180, 0, 90, color, thickness)
+        cv2.ellipse(img, (x2 - radius, y1 + radius), (radius, radius), 270, 0, 90, color, thickness)
+        cv2.ellipse(img, (x1 + radius, y2 - radius), (radius, radius), 90, 0, 90, color, thickness)
+        cv2.ellipse(img, (x2 - radius, y2 - radius), (radius, radius), 0, 0, 90, color, thickness)
 
     def recognize_faces(self, frame, db):
         '''Backward compat.'''
