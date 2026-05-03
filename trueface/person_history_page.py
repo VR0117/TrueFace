@@ -18,8 +18,8 @@ class PersonHistoryPage(QWidget):
         # Header row
         header_row = QHBoxLayout()
         self.title_label = QLabel("Access History")
-        self.title_label.setFont(QFont("Segoe UI", 20, QFont.Bold))
-        self.title_label.setStyleSheet(f"color: {Theme.PRIMARY};")
+        self.title_label.setFont(QFont(".AppleSystemUIFont", 18, QFont.Bold))
+        self.title_label.setStyleSheet(f"color: {Theme.TEXT_MAIN};")
 
         self.back_button = QPushButton("Back")
         self.back_button.setCursor(Qt.PointingHandCursor)
@@ -34,7 +34,7 @@ class PersonHistoryPage(QWidget):
         # Separator
         sep = QFrame()
         sep.setFixedHeight(1)
-        sep.setStyleSheet(f"background-color: rgba(255,255,255,0.07);")
+        sep.setStyleSheet(f"background-color: rgba(255,255,255,0.04);")
         layout.addWidget(sep)
 
         # List

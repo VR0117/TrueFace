@@ -21,17 +21,18 @@ class NeonButton(QPushButton):
 
         self.setStyleSheet(f"""
             QPushButton {{
-                background-color: {Theme.PRIMARY_GLOW};
+                background-color: {Theme.PRIMARY_DIM};
                 color: {Theme.PRIMARY};
-                border: 1px solid {Theme.PRIMARY};
+                border: 1px solid rgba(96, 165, 250, 0.3);
                 border-radius: 12px;
-                font-size: 18px;
+                font-size: 16px;
                 font-weight: 600;
-                letter-spacing: 1px;
+                letter-spacing: 1.5px;
             }}
             QPushButton:hover {{
                 background-color: {Theme.PRIMARY};
                 color: {Theme.BG_DARK};
+                border-color: {Theme.PRIMARY};
             }}
         """)
 
@@ -80,7 +81,7 @@ class NeonButton(QPushButton):
         if self._glow > 0:
             painter = QPainter(self)
             painter.setRenderHint(QPainter.Antialiasing)
-            glow_color = QColor(56, 189, 248, int(150 * self._glow))
+            glow_color = QColor(96, 165, 250, int(120 * self._glow))
             pen = QPen(glow_color, 2)
             painter.setPen(pen)
             painter.setBrush(Qt.NoBrush)
@@ -128,9 +129,9 @@ class WelcomePage(QWidget):
         self.card.setFixedWidth(500)
         self.card.setStyleSheet(f"""
             QFrame {{
-                background-color: rgba(15, 23, 42, 230);
-                border: none;
-                border-radius: 40px;
+                background-color: rgba(19, 22, 31, 0.95);
+                border: 1px solid rgba(255, 255, 255, 0.04);
+                border-radius: 28px;
             }}
         """)
 
@@ -142,14 +143,14 @@ class WelcomePage(QWidget):
         # Title
         title = QLabel("TrueFace")
         title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("Segoe UI", 48, QFont.Bold))
-        title.setStyleSheet(f"color: {Theme.TEXT_MAIN}; letter-spacing: 2px;")
+        title.setFont(QFont(".AppleSystemUIFont", 44, QFont.Bold))
+        title.setStyleSheet(f"color: {Theme.TEXT_MAIN}; letter-spacing: 1px;")
 
         # Subtitle
         subtitle = QLabel("SMART RECOGNITION SYSTEM")
         subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setFont(QFont("Segoe UI", 11))
-        subtitle.setStyleSheet(f"color: {Theme.PRIMARY}; letter-spacing: 4px; font-weight: 500;")
+        subtitle.setFont(QFont(".AppleSystemUIFont", 10))
+        subtitle.setStyleSheet(f"color: {Theme.TEXT_MUTED}; letter-spacing: 4px; font-weight: 500;")
 
         # Animated Neon Button
         button = NeonButton("START", callback=self.proceed)
@@ -183,11 +184,11 @@ class WelcomePage(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Deep space gradient
+        # Deep gradient background
         bg = QLinearGradient(0, 0, self.width(), self.height())
-        bg.setColorAt(0, QColor("#020617"))
-        bg.setColorAt(0.5, QColor("#0f172a"))
-        bg.setColorAt(1, QColor("#020617"))
+        bg.setColorAt(0.0, QColor("#06080f"))
+        bg.setColorAt(0.5, QColor("#0c0e14"))
+        bg.setColorAt(1.0, QColor("#06080f"))
         painter.fillRect(self.rect(), QBrush(bg))
 
         # Draw particles
@@ -204,7 +205,7 @@ class WelcomePage(QWidget):
             if p['y'] < -50: p['y'] = height + 50
             if p['y'] > height + 50: p['y'] = -50
 
-            painter.setBrush(QColor(56, 189, 248, p['alpha']))
+            painter.setBrush(QColor(96, 165, 250, int(p['alpha'] * 0.6)))
             painter.setPen(Qt.NoPen)
             painter.drawEllipse(QPointF(p['x'], p['y']), p['size'], p['size'])
 
@@ -212,14 +213,14 @@ class WelcomePage(QWidget):
             for other in self.particles:
                 dist = math.hypot(p['x'] - other['x'], p['y'] - other['y'])
                 if 0 < dist < 120:
-                    alpha = int(80 * (1 - dist / 120))
-                    painter.setPen(QPen(QColor(56, 189, 248, alpha), 1.0))
+                    alpha = int(45 * (1 - dist / 120))
+                    painter.setPen(QPen(QColor(96, 165, 250, alpha), 0.7))
                     painter.drawLine(QPointF(p['x'], p['y']), QPointF(other['x'], other['y']))
                     painter.setPen(Qt.NoPen)
 
         # Bottom-right signature
-        painter.setPen(QColor("#334155"))
-        painter.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        painter.setPen(QColor(Theme.TEXT_MUTED))
+        painter.setFont(QFont(".AppleSystemUIFont", 9))
         text = "SECURED BY THEITIANS"
         metrics = painter.fontMetrics()
         painter.drawText(

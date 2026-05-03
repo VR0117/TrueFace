@@ -29,8 +29,8 @@ class PersonDetailsPage(QWidget):
         # Header Title
         self.header = QLabel("Person Details")
         self.header.setAlignment(Qt.AlignCenter)
-        self.header.setFont(QFont("Segoe UI", 20, QFont.Bold))
-        self.header.setStyleSheet(f"color: {Theme.PRIMARY};")
+        self.header.setFont(QFont(".AppleSystemUIFont", 18, QFont.Bold))
+        self.header.setStyleSheet(f"color: {Theme.TEXT_MAIN};")
         wrapper_layout.addWidget(self.header)
 
         # Main Card Frame
@@ -39,24 +39,25 @@ class PersonDetailsPage(QWidget):
         self.card_frame.setStyleSheet(f"""
             QFrame#MainCard {{
                 background-color: {Theme.BG_CARD};
-                border: none;
-                border-radius: 28px;
+                border: 1px solid rgba(255,255,255,0.04);
+                border-radius: 18px;
             }}
             QLabel {{
                 color: {Theme.TEXT_MUTED};
-                font-weight: 500;
-                font-size: 13px;
+                font-weight: 600;
+                font-size: 12px;
             }}
             QLineEdit, QDateEdit {{
-                font-size: 14px;
-                padding: 10px;
+                font-size: 13px;
+                padding: 10px 14px;
                 background-color: {Theme.BG_INPUT};
-                border: none;
+                border: 1px solid rgba(255,255,255,0.04);
                 border-radius: 8px;
             }}
             QLineEdit:read-only, QDateEdit:read-only {{
                 background-color: transparent;
-                color: {Theme.PRIMARY};
+                border-color: transparent;
+                color: {Theme.TEXT_SEC};
                 font-weight: 600;
             }}
         """)
@@ -108,8 +109,8 @@ class PersonDetailsPage(QWidget):
                     self.delete_button, self.history_button, self.back_button]:
             btn.setCursor(Qt.PointingHandCursor)
 
-        self.delete_button.setStyleSheet(f"QPushButton {{ color: {Theme.DANGER}; border-color: {Theme.DANGER}; background: rgba(244, 63, 94, 0.1); }} QPushButton:hover {{ background: {Theme.DANGER}; color: #fff; }}")
-        self.save_button.setStyleSheet(f"QPushButton {{ color: {Theme.SUCCESS}; border-color: {Theme.SUCCESS}; background: rgba(16, 185, 129, 0.1); }} QPushButton:hover {{ background: {Theme.SUCCESS}; color: #fff; }}")
+        self.delete_button.setStyleSheet(f"QPushButton {{ color: {Theme.DANGER}; border-color: rgba(251,113,133,0.3); background: rgba(251,113,133,0.08); }} QPushButton:hover {{ background: {Theme.DANGER}; color: #fff; }}")
+        self.save_button.setStyleSheet(f"QPushButton {{ color: {Theme.SUCCESS}; border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.08); }} QPushButton:hover {{ background: {Theme.SUCCESS}; color: #fff; }}")
 
         self.btn_layout.addWidget(self.back_button)
         self.btn_layout.addWidget(self.history_button)

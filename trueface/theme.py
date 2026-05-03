@@ -1,100 +1,148 @@
 class Theme:
-    # Colors
-    BG_DARK = "#0b0f19"
-    BG_CARD = "#0f172a"
-    BG_INPUT = "#1e293b"
-    
-    PRIMARY = "#38bdf8"    # Cyan
-    PRIMARY_GLOW = "rgba(56, 189, 248, 0.12)"
-    ACCENT = "#818cf8"     # Indigo
-    ACCENT_GLOW = "rgba(129, 140, 248, 0.15)"
-    SUCCESS = "#10b981"    # Emerald
-    WARNING = "#f59e0b"    # Amber
-    DANGER = "#f43f5e"     # Rose
-    
-    TEXT_MAIN = "#f8fafc"
-    TEXT_MUTED = "#94a3b8"
-    
-    # Fonts
-    FONT_FAMILY = "'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif"
-    
-    # Global QSS
+    # ── Color Palette ─────────────────────────────────────────────────────────
+    # Deep, warm backgrounds instead of cold navy
+    BG_DARK   = "#0c0e14"
+    BG_CARD   = "#13161f"
+    BG_INPUT  = "#1a1d2b"
+    BG_HOVER  = "#222639"
+
+    # Refined accent colors — softer, less neon
+    PRIMARY      = "#60a5fa"   # Soft blue
+    PRIMARY_DIM  = "rgba(96, 165, 250, 0.10)"
+    ACCENT       = "#a78bfa"   # Lavender
+    SUCCESS      = "#34d399"   # Soft emerald
+    WARNING      = "#fbbf24"   # Warm amber
+    DANGER       = "#fb7185"   # Soft rose
+
+    # Text hierarchy
+    TEXT_MAIN  = "#e8eaf0"
+    TEXT_SEC   = "#b0b8c9"
+    TEXT_MUTED = "#6b7494"
+
+    # ── Font stack (macOS-friendly, no Segoe UI) ──────────────────────────────
+    FONT_FAMILY = "'Helvetica Neue', 'Arial', sans-serif"
+
+    # ── Global QSS ────────────────────────────────────────────────────────────
     STYLE = f"""
+    * {{
+        outline: none;
+    }}
+
     QWidget {{
         background-color: {BG_DARK};
         color: {TEXT_MAIN};
         font-family: {FONT_FAMILY};
+        font-size: 13px;
     }}
-    
+
     QDialog {{
         background-color: {BG_CARD};
-        border: none;
-        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 14px;
     }}
-    
+
     QLabel {{
         background-color: transparent;
+        border: none;
     }}
-    
+
+    /* ── Buttons ──────────────────────────────────────────────────────── */
     QPushButton {{
-        background-color: {PRIMARY_GLOW};
+        background-color: {PRIMARY_DIM};
         color: {PRIMARY};
-        border: 1px solid {PRIMARY};
-        border-radius: 10px;
-        padding: 10px 22px;
+        border: 1px solid rgba(96, 165, 250, 0.25);
+        border-radius: 8px;
+        padding: 9px 20px;
         font-weight: 600;
         font-size: 13px;
     }}
-    
+
     QPushButton:hover {{
         background-color: {PRIMARY};
         color: {BG_DARK};
+        border-color: {PRIMARY};
     }}
-    
+
+    QPushButton:pressed {{
+        background-color: #4a8fe0;
+        border-color: #4a8fe0;
+    }}
+
+    /* ── Inputs ───────────────────────────────────────────────────────── */
     QLineEdit, QDateEdit {{
         background-color: {BG_INPUT};
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 12px;
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px;
+        padding: 10px 14px;
         color: {TEXT_MAIN};
+        font-size: 13px;
+        selection-background-color: {PRIMARY};
     }}
-    
-    QLineEdit:focus {{
-        border: 1px solid {PRIMARY};
+
+    QLineEdit:focus, QDateEdit:focus {{
+        border: 1px solid rgba(96, 165, 250, 0.5);
     }}
-    
+
+    QLineEdit:read-only {{
+        background-color: transparent;
+        border-color: transparent;
+        color: {TEXT_SEC};
+    }}
+
+    /* ── List widgets ─────────────────────────────────────────────────── */
     QListWidget {{
         background-color: {BG_CARD};
-        border: none;
-        border-radius: 12px;
-        padding: 5px;
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 10px;
+        padding: 6px;
     }}
-    
+
     QListWidget::item {{
-        padding: 14px;
-        border-radius: 8px;
-        margin-bottom: 5px;
+        padding: 12px 14px;
+        border-radius: 7px;
+        margin-bottom: 3px;
+        color: {TEXT_SEC};
     }}
-    
+
     QListWidget::item:hover {{
-        background-color: {BG_INPUT};
+        background-color: {BG_HOVER};
+        color: {TEXT_MAIN};
     }}
-    
+
     QListWidget::item:selected {{
-        background-color: {PRIMARY};
-        color: {BG_DARK};
-        font-weight: bold;
+        background-color: rgba(96, 165, 250, 0.15);
+        color: {PRIMARY};
     }}
-    
+
+    /* ── Scrollbars ───────────────────────────────────────────────────── */
     QScrollBar:vertical {{
         border: none;
         background: transparent;
-        width: 8px;
+        width: 6px;
+        margin: 4px 0;
     }}
-    
+
     QScrollBar::handle:vertical {{
-        background: #334155;
-        border-radius: 4px;
+        background: rgba(255,255,255,0.08);
+        border-radius: 3px;
+        min-height: 30px;
+    }}
+
+    QScrollBar::handle:vertical:hover {{
+        background: rgba(255,255,255,0.14);
+    }}
+
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+        height: 0;
+    }}
+
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+        background: none;
+    }}
+
+    /* ── Message boxes ────────────────────────────────────────────────── */
+    QMessageBox {{
+        background-color: {BG_CARD};
     }}
     """
 

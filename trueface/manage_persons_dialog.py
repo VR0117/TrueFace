@@ -23,8 +23,8 @@ class ManagePersonsDialog(QDialog):
 
         # Title
         self.title_label = QLabel("Registered Persons")
-        self.title_label.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.title_label.setStyleSheet(f"color: {Theme.PRIMARY};")
+        self.title_label.setFont(QFont(".AppleSystemUIFont", 15, QFont.Bold))
+        self.title_label.setStyleSheet(f"color: {Theme.TEXT_MAIN};")
         layout.addWidget(self.title_label)
 
         # List Widget
@@ -41,7 +41,7 @@ class ManagePersonsDialog(QDialog):
         self.delete_button = QPushButton("Delete")
         self.close_button = QPushButton("Close")
 
-        self.delete_button.setStyleSheet(f"QPushButton {{ color: {Theme.DANGER}; border-color: {Theme.DANGER}; }} QPushButton:hover {{ background: {Theme.DANGER}; color: #fff; }}")
+        self.delete_button.setStyleSheet(f"QPushButton {{ color: {Theme.DANGER}; border-color: rgba(251,113,133,0.3); background: rgba(251,113,133,0.08); }} QPushButton:hover {{ background: {Theme.DANGER}; color: #fff; }}")
 
         for btn in [self.refresh_button, self.view_button, self.delete_button, self.close_button]:
             btn.setCursor(Qt.PointingHandCursor)

@@ -26,11 +26,11 @@ class PersonFormDialog(QDialog):
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {Theme.BG_CARD};
-                border: 1px solid {Theme.PRIMARY_GLOW};
+                border: 1px solid rgba(255,255,255,0.06);
             }}
             QLabel {{
-                color: {Theme.PRIMARY};
-                font-weight: bold;
+                color: {Theme.TEXT_SEC};
+                font-weight: 600;
             }}
         """)
 
@@ -104,29 +104,31 @@ class HomePage(QWidget):
         self.camera = Camera()
 
         # UI Setup
-        self.image_label = QLabel("INITIALIZING...")
+        self.image_label = QLabel("Waiting for camera…")
         self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setMinimumSize(640, 480)
         self.image_label.setStyleSheet(f"""
             QLabel {{
-                background-color: #020617;
-                border: none;
-                border-radius: 20px;
+                background-color: #080a10;
+                border: 1px solid rgba(255,255,255,0.04);
+                border-radius: 16px;
                 color: {Theme.TEXT_MUTED};
+                font-size: 14px;
             }}
         """)
 
-        self.status_label = QLabel("READY")
+        self.status_label = QLabel("Ready")
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setFixedHeight(45)
+        self.status_label.setFixedHeight(40)
         self.status_label.setStyleSheet(f"""
             QLabel {{
-                font-size: 14px;
+                font-size: 13px;
                 font-weight: 600;
-                color: {Theme.TEXT_MAIN};
+                color: {Theme.TEXT_SEC};
                 background-color: {Theme.BG_CARD};
-                border-radius: 12px;
-                padding: 5px;
+                border: 1px solid rgba(255,255,255,0.04);
+                border-radius: 10px;
+                padding: 0 14px;
             }}
         """)
 
@@ -182,7 +184,7 @@ class HomePage(QWidget):
         try:
             self.camera.open()
             self.timer.start(30)  # ~33fps
-            self.status_label.setText("Status: Camera Active")
+            self.status_label.setText("Camera active")
         except CameraError as e:
             QMessageBox.critical(self, "Camera Error", str(e))
 
@@ -246,8 +248,8 @@ class HomePage(QWidget):
         status_style = ""
 
         if not results:
-            current_status = "SCANNING... NO FACE DETECTED"
-            status_style = f"color: {Theme.TEXT_MUTED}; background-color: {Theme.BG_CARD};"
+            current_status = "Scanning…"
+            status_style = f"color: {Theme.TEXT_MUTED}; background-color: {Theme.BG_CARD}; border: 1px solid rgba(255,255,255,0.04);"
             self.pending_person = None
             self.register_mode = True
         else:
@@ -268,15 +270,15 @@ class HomePage(QWidget):
 
                 if person:
                     self.pending_person = person
-                    current_status = f"VERIFIED: {name.upper()}  [{conf:.0%}]"
-                    status_style = f"color: {Theme.SUCCESS}; border: 1px solid {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.1);"
+                    current_status = f"Verified — {name}  ·  {conf:.0%}"
+                    status_style = f"color: {Theme.SUCCESS}; border: 1px solid rgba(52, 211, 153, 0.25); background-color: rgba(52, 211, 153, 0.08);"
                     self.register_mode = False
                 else:
-                    current_status = f"UNKNOWN DATA: {name.upper()}"
-                    status_style = f"color: {Theme.WARNING};"
+                    current_status = f"Unknown record — {name}"
+                    status_style = f"color: {Theme.WARNING}; border: 1px solid rgba(251, 191, 36, 0.2); background-color: rgba(251, 191, 36, 0.06);"
             else:
-                current_status = "UNKNOWN FACE DETECTED"
-                status_style = f"color: {Theme.DANGER}; border: 1px solid {Theme.DANGER}; background-color: rgba(244, 63, 94, 0.1);"
+                current_status = "Unknown face detected"
+                status_style = f"color: {Theme.DANGER}; border: 1px solid rgba(251, 113, 133, 0.25); background-color: rgba(251, 113, 133, 0.06);"
                 self.pending_person = None
                 self.register_mode = True
 
@@ -291,7 +293,7 @@ class HomePage(QWidget):
 
         if current_status != self.last_status_text:
             self.status_label.setText(current_status)
-            self.status_label.setStyleSheet(f"font-size: 14px; font-weight: 600; border-radius: 12px; padding: 5px; {status_style}")
+            self.status_label.setStyleSheet(f"font-size: 13px; font-weight: 600; border-radius: 10px; padding: 0 14px; {status_style}")
             self.last_status_text = current_status
 
         # Draw HUD and scanning line
@@ -302,11 +304,11 @@ class HomePage(QWidget):
             self.scan_dir *= -1
 
         overlay = frame.copy()
-        cv2.line(overlay, (0, self.scan_line_y), (fw, self.scan_line_y), (248, 189, 56), 2)
-        cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
+        cv2.line(overlay, (0, self.scan_line_y), (fw, self.scan_line_y), (250, 165, 96), 1)
+        cv2.addWeighted(overlay, 0.25, frame, 0.75, 0, frame)
 
-        # Corner brackets
-        c, t, l, m = (248, 189, 56), 2, 40, 20
+        # Corner brackets (soft blue)
+        c, t, l, m = (250, 165, 96), 1, 32, 16
         cv2.line(frame, (m, m), (m+l, m), c, t)
         cv2.line(frame, (m, m), (m, m+l), c, t)
         cv2.line(frame, (fw-m, m), (fw-m-l, m), c, t)
@@ -362,11 +364,11 @@ class HomePage(QWidget):
 
         expected_uid = self.pending_person.get("nfc_uid", "")
         if uid == expected_uid:
-            self.status_label.setText(f"ACCESS GRANTED: {self.pending_person['name'].upper()}")
-            self.status_label.setStyleSheet(f"color: {Theme.SUCCESS}; border: 1px solid {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.1); font-size: 14px; font-weight: 600; border-radius: 12px; padding: 5px;")
+            self.status_label.setText(f"Access granted — {self.pending_person['name']}")
+            self.status_label.setStyleSheet(f"color: {Theme.SUCCESS}; border: 1px solid rgba(52,211,153,0.25); background-color: rgba(52,211,153,0.08); font-size: 13px; font-weight: 600; border-radius: 10px; padding: 0 14px;")
             if self.show_person_details:
                 self.show_person_details(self.pending_person)
             self.pending_person = None
         else:
-            self.status_label.setText(f"NFC MISMATCH: {uid}")
-            self.status_label.setStyleSheet(f"color: {Theme.DANGER}; border: 1px solid {Theme.DANGER}; background-color: rgba(244, 63, 94, 0.1); font-size: 14px; font-weight: 600; border-radius: 12px; padding: 5px;")
+            self.status_label.setText(f"NFC mismatch — {uid}")
+            self.status_label.setStyleSheet(f"color: {Theme.DANGER}; border: 1px solid rgba(251,113,133,0.25); background-color: rgba(251,113,133,0.06); font-size: 13px; font-weight: 600; border-radius: 10px; padding: 0 14px;")
