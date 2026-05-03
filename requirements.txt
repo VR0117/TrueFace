@@ -1,0 +1,10 @@
+PySide6
+opencv-python
+pyscard
+pyttsx3
+psycopg2-binary
+numpy
+face_recognition
+cmake
+
+
