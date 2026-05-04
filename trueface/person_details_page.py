@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox,
-    QLineEdit, QFormLayout, QDateEdit, QFrame
+    QLineEdit, QFormLayout, QDateEdit, QFrame, QStackedWidget
 )
 from PySide6.QtCore import Qt, QDate, QPropertyAnimation, QEasingCurve, QPointF
 from PySide6.QtGui import QFont, QColor
@@ -27,10 +27,15 @@ class PersonDetailsPage(QWidget):
         wrapper_layout.setSpacing(30)
 
         # Header Title
-        self.header = QLabel("Person Details")
+        self.header = QLabel("Personal Details")
         self.header.setAlignment(Qt.AlignCenter)
-        self.header.setFont(QFont(".AppleSystemUIFont", 18, QFont.Bold))
-        self.header.setStyleSheet(f"color: {Theme.TEXT_MAIN};")
+        self.header.setFont(QFont("Inter", 24, QFont.ExtraBold))
+        self.header.setStyleSheet(f"""
+            QLabel {{
+                color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {Theme.PRIMARY}, stop:1 {Theme.ACCENT});
+                letter-spacing: 2px;
+            }}
+        """)
         wrapper_layout.addWidget(self.header)
 
         # Main Card Frame
@@ -57,9 +62,8 @@ class PersonDetailsPage(QWidget):
             }}
             QLineEdit:read-only, QDateEdit:read-only {{
                 background-color: transparent;
-                border-color: transparent;
-                color: {Theme.TEXT_SEC};
-                font-weight: 600;
+                border: none;
+                color: {Theme.TEXT_MAIN};
             }}
         """)
         card_layout = QVBoxLayout(self.card_frame)
@@ -68,31 +72,71 @@ class PersonDetailsPage(QWidget):
 
         # Form layout
         self.form_layout = QFormLayout()
-        self.form_layout.setLabelAlignment(Qt.AlignRight)
-        self.form_layout.setSpacing(20)
+        self.form_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.form_layout.setFormAlignment(Qt.AlignCenter | Qt.AlignVCenter)
+        self.form_layout.setSpacing(25)
         self.form_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        self.form_layout.setVerticalSpacing(25)
 
         self.first_name_input = QLineEdit()
+        self.first_name_input.setFixedHeight(40)
+        self.first_name_input.setStyleSheet("background: transparent; border: none;")
         self.last_name_input = QLineEdit()
+        self.last_name_input.setFixedHeight(40)
+        self.last_name_input.setStyleSheet("background: transparent; border: none;")
 
-        self.birthday_input = QDateEdit()
-        self.birthday_input.setCalendarPopup(True)
-        self.birthday_input.setDisplayFormat("yyyy-MM-dd")
+        self.birthday_stack = QStackedWidget()
+        self.birthday_stack.setFixedHeight(40)
+        self.birthday_stack.setStyleSheet("background: transparent; border: none;")
+        
+        self.birthday_view = QLineEdit()
+        self.birthday_view.setFixedHeight(40)
+        self.birthday_view.setReadOnly(True)
+        self.birthday_view.setStyleSheet("background: transparent; border: none;")
+        
+        self.birthday_edit = QDateEdit()
+        self.birthday_edit.setFixedHeight(40)
+        self.birthday_edit.setCalendarPopup(True)
+        self.birthday_edit.setDisplayFormat("yyyy-MM-dd")
+        
+        self.birthday_stack.addWidget(self.birthday_view)
+        self.birthday_stack.addWidget(self.birthday_edit)
+        
+        # Style the calendar for a "stylish" look
+        self.birthday_edit.calendarWidget().setStyleSheet(f"""
+            QCalendarWidget QWidget {{ background-color: #0f172a; color: white; }}
+            QCalendarWidget QAbstractItemView:enabled {{ color: white; selection-background-color: {Theme.PRIMARY}; selection-color: black; }}
+            QCalendarWidget QToolButton {{ color: white; font-weight: bold; }}
+        """)
 
         self.role_input = QLineEdit()
+        self.role_input.setFixedHeight(40)
+        self.role_input.setStyleSheet("background: transparent; border: none;")
         self.nfc_input = QLineEdit()
+        self.nfc_input.setFixedHeight(40)
+        self.nfc_input.setStyleSheet("background: transparent; border: none;")
 
         self.last_seen_label = QLabel()
-        self.last_seen_label.setStyleSheet(f"color: {Theme.SUCCESS}; font-size: 15px;")
+        self.last_seen_label.setFixedHeight(40)
+        self.last_seen_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.last_seen_label.setStyleSheet(f"color: {Theme.SUCCESS}; font-size: 15px; font-weight: bold;")
 
-        self.form_layout.addRow("FIRST NAME", self.first_name_input)
-        self.form_layout.addRow("LAST NAME", self.last_name_input)
-        self.form_layout.addRow("BIRTHDATE", self.birthday_input)
-        self.form_layout.addRow("ASSIGNED ROLE", self.role_input)
-        self.form_layout.addRow("NFC SIGNATURE", self.nfc_input)
-        self.form_layout.addRow("LAST VERIFIED", self.last_seen_label)
+        # Form rows with manual labels for perfect alignment
+        def add_aligned_row(label_text, widget):
+            lbl = QLabel(label_text)
+            lbl.setFixedHeight(40)
+            lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            self.form_layout.addRow(lbl, widget)
+
+        add_aligned_row("FIRST NAME", self.first_name_input)
+        add_aligned_row("LAST NAME", self.last_name_input)
+        add_aligned_row("BIRTHDATE", self.birthday_stack)
+        add_aligned_row("ASSIGNED ROLE", self.role_input)
+        add_aligned_row("NFC SIGNATURE", self.nfc_input)
+        add_aligned_row("LAST VERIFIED", self.last_seen_label)
 
         card_layout.addLayout(self.form_layout)
+        card_layout.addStretch() 
         wrapper_layout.addWidget(self.card_frame)
 
         # Buttons Layout
@@ -191,6 +235,7 @@ class PersonDetailsPage(QWidget):
         wrapper_layout.addLayout(self.btn_layout)
 
         main_layout.addWidget(self.content_wrapper)
+        main_layout.addStretch()
 
         # Connect buttons
         self.back_button.clicked.connect(self.back)
@@ -199,7 +244,6 @@ class PersonDetailsPage(QWidget):
         self.cancel_button.clicked.connect(self.cancel_editing)
         self.delete_button.clicked.connect(self.delete_person)
         self.history_button.clicked.connect(self.show_history)
-
         self.current_person_name = None
         self.original_data = {}
 
@@ -230,15 +274,19 @@ class PersonDetailsPage(QWidget):
 
         self.first_name_input.setText(db_data.get("name", ""))
         self.last_name_input.setText(db_data.get("last_name", ""))
+
+        bday = db_data.get("birthday", "")
+        self.birthday_view.setText(bday)
+        
+        if bday:
+            qdate = QDate.fromString(bday, "yyyy-MM-dd")
+            if qdate.isValid():
+                self.birthday_edit.setDate(qdate)
+        
         self.role_input.setText(db_data.get("role", ""))
         self.nfc_input.setText(db_data.get("nfc_uid", ""))
         self.last_seen_label.setText(db_data.get("entry_time", "NEVER"))
 
-        bday_str = db_data.get("birthday", "")
-        if bday_str:
-            qdate = QDate.fromString(bday_str, "yyyy-MM-dd")
-            if qdate.isValid():
-                self.birthday_input.setDate(qdate)
 
         self.set_editable(False)
 
@@ -251,9 +299,13 @@ class PersonDetailsPage(QWidget):
     def set_editable(self, editable: bool):
         self.first_name_input.setReadOnly(not editable)
         self.last_name_input.setReadOnly(not editable)
-        self.birthday_input.setReadOnly(not editable)
         self.role_input.setReadOnly(not editable)
         self.nfc_input.setReadOnly(not editable)
+        
+        self.birthday_stack.setCurrentIndex(1 if editable else 0)
+        if not editable:
+            # Sync view with edit value after saving
+            self.birthday_view.setText(self.birthday_edit.date().toString("yyyy-MM-dd"))
 
         # Admin only buttons
         is_admin = hasattr(self, 'source') and self.source == 'admin'
@@ -278,7 +330,7 @@ class PersonDetailsPage(QWidget):
         new_data = {
             "name": new_first,
             "last_name": self.last_name_input.text().strip(),
-            "birthday": self.birthday_input.date().toString("yyyy-MM-dd"),
+            "birthday": self.birthday_edit.date().toString("yyyy-MM-dd"),
             "role": self.role_input.text().strip(),
             "nfc_uid": self.nfc_input.text().strip()
         }

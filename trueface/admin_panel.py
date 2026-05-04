@@ -14,6 +14,9 @@ class AdminPanelDialog(QDialog):
         self.db = db
         self.show_details = show_details_callback
         self.show_history = show_history_callback
+        
+        self.selected_person = None
+        self.history_person = None
 
         self.setWindowTitle("Admin Dashboard")
         self.setMinimumSize(850, 650)
@@ -334,20 +337,12 @@ class AdminPanelDialog(QDialog):
     def view_person(self, name):
         person = self.db.get_person_details(name)
         if person:
-            # We close dialog so the underlying HomePage can show the details page
+            self.selected_person = person
             self.close()
-            self.show_details(person, source='admin')
 
     def view_person_history_direct(self, name):
-        if self.show_history:
-            history = self.db.get_person_history(name)
-            self.close()
-            # Explicitly call the history callback with source='admin'
-            self.show_history(name, history, source='admin')
-        else:
-            # If for some reason the callback isn't there, we warn and use details as fallback
-            QMessageBox.warning(self, "Navigation Error", "History service is temporarily unavailable.")
-            self.view_person(name)
+        self.history_person = name
+        self.close()
 
     def show_removal_history(self):
         dialog = PreviousUsersDialog(self.db, self)

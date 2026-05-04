@@ -133,7 +133,7 @@ class WelcomePage(QWidget):
         # Super premium glassmorphism
         self.card.setStyleSheet(f"""
             QFrame#WelcomeCard {{
-                background-color: rgba(18, 18, 22, 0.4);
+                background-color: rgba(15, 23, 42, 0.45);
                 border-top: 1px solid rgba(255, 255, 255, 0.15);
                 border-left: 1px solid rgba(255, 255, 255, 0.15);
                 border-right: 1px solid rgba(255, 255, 255, 0.05);
@@ -156,7 +156,7 @@ class WelcomePage(QWidget):
         title.setFont(QFont("Inter", 110, QFont.Black)) 
         title.setStyleSheet(f"""
             QLabel {{
-                color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:0.4 {Theme.PRIMARY}, stop:1 {Theme.ACCENT});
+                color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 {Theme.PRIMARY});
                 letter-spacing: 2px;
                 font-weight: 950;
                 background: transparent;
@@ -224,10 +224,10 @@ class WelcomePage(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        # Deep premium gradient background
+        # Deep Midnight radial background
         bg = QRadialGradient(self.width() / 2, self.height() / 2, max(self.width(), self.height()))
-        bg.setColorAt(0.0, QColor("#121216"))
-        bg.setColorAt(1.0, QColor("#050507"))
+        bg.setColorAt(0.0, QColor("#1e293b")) # Slate 800
+        bg.setColorAt(1.0, QColor("#0b1121")) # Midnight
         painter.fillRect(self.rect(), QBrush(bg))
 
         # Draw particles

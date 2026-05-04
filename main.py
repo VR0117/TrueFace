@@ -63,8 +63,8 @@ class TrueFaceApp:
         self.home_page: HomePage = HomePage(
             face_engine=self.face_engine,
             db=self.db,
-            show_person_details=self.show_person_details,
-            show_person_history=self.show_person_history
+            show_personal_details=self.show_person_details,
+            show_personal_history=self.show_person_history
         )
 
         # Person details page needs callbacks for back navigation and history
@@ -139,7 +139,8 @@ class TrueFaceApp:
     def run(self) -> None:
         """Start the Qt application."""
         self.stack.setWindowTitle("TrueFace Security")
-        self.stack.setMinimumSize(900, 600)
+        self.stack.setMinimumSize(1100, 750)
+        self.stack.resize(1100, 750)
         self.stack.show()
         sys.exit(self.app.exec())
 

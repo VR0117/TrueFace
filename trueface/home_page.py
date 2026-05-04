@@ -68,6 +68,16 @@ class PersonFormDialog(QDialog):
                 font-weight: 600;
                 font-size: 15px;
             }}
+            QDateEdit::drop-down {
+                border: none;
+                background: transparent;
+                width: 25px;
+            }
+            QDateEdit::down-arrow {
+                width: 12px;
+                height: 12px;
+                background: transparent;
+            }
         """)
 
         apply_subtle_shadow(self, color=QColor(0,0,0, 180), blur=40, offset=(0, 10))
@@ -144,10 +154,10 @@ class PersonFormDialog(QDialog):
 # Home Page (Main Recognition Screen)
 # ==========================
 class HomePage(QWidget):
-    def __init__(self, show_person_details=None, show_person_history=None, face_engine=None, db=None):
+    def __init__(self, show_personal_details=None, show_personal_history=None, face_engine=None, db=None):
         super().__init__()
-        self.show_person_details = show_person_details
-        self.show_person_history = show_person_history
+        self.show_person_details = show_personal_details
+        self.show_person_history = show_personal_history
         self.face_engine = face_engine or FaceEngine()
         self.db = db or FaceDatabase()
         self.nfc = NFCReader()
@@ -281,15 +291,17 @@ class HomePage(QWidget):
         
         try:
             self.camera.open()
-            self.timer.start(30)  # ~33fps
+            self.timer.start(40)  # Smoother 25fps for better overall responsiveness
+            self.nfc_timer.start(500)
             self.update_status("FEED ACTIVE", "color: #10b981;")
-            self.image_label.setText("") # Clear standby text
+            self.image_label.setText("") 
         except CameraError as e:
             QMessageBox.critical(self, "Camera Error", str(e))
 
     def stop_timer(self):
-        """Stop camera timer (called on navigation)"""
+        """Stop camera and sensors (called on navigation)"""
         self.timer.stop()
+        self.nfc_timer.stop()
         if self.camera:
             self.camera.release()
             
@@ -436,23 +448,20 @@ class HomePage(QWidget):
         if self.scan_line_y >= fh or self.scan_line_y <= 0:
             self.scan_dir *= -1
 
-        # Glowing scanner line
-        overlay = frame.copy()
-        cv2.line(overlay, (0, self.scan_line_y), (fw, self.scan_line_y), (246, 130, 59), 2)
+        # Efficient scanner line drawing - avoid full frame copy
+        cyan_bgr = (248, 189, 56) # Sky Blue for Midnight theme
+        cv2.line(frame, (0, self.scan_line_y), (fw, self.scan_line_y), cyan_bgr, 2, cv2.LINE_AA)
         
-        # Add slight gradient effect to the line area
-        scan_area_top = max(0, self.scan_line_y - 20)
-        scan_area_bottom = min(fh, self.scan_line_y + 20)
+        # Subtle glow area (only redraw small region)
+        scan_area_top = max(0, self.scan_line_y - 15)
+        scan_area_bottom = min(fh, self.scan_line_y + 15)
         if scan_area_bottom > scan_area_top:
-            overlay[scan_area_top:scan_area_bottom, :] = cv2.addWeighted(
-                overlay[scan_area_top:scan_area_bottom, :], 0.8, 
-                np.full_like(overlay[scan_area_top:scan_area_bottom, :], (246, 130, 59)), 0.2, 0
-            )
+            region = frame[scan_area_top:scan_area_bottom, :]
+            glow = np.full_like(region, cyan_bgr)
+            cv2.addWeighted(region, 0.85, glow, 0.15, 0, region)
 
-        cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
-
-        # High-tech Corner brackets
-        c, t, l, m = (233, 165, 14), 2, 40, 20 # BGR: Cyan
+        # High-tech Corner brackets - increased margin to 40 for rounded corner safety
+        c, t, l, m = (233, 165, 14), 2, 40, 40 # BGR: Cyan
         cv2.line(frame, (m, m), (m+l, m), c, t)
         cv2.line(frame, (m, m), (m, m+l), c, t)
         cv2.line(frame, (fw-m, m), (fw-m-l, m), c, t)
@@ -474,7 +483,7 @@ class HomePage(QWidget):
         target_h = max(480, self.camera_container.height())
         pixmap = QPixmap.fromImage(qt_image).scaled(
             target_w, target_h,
-            Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+            Qt.KeepAspectRatio, Qt.SmoothTransformation
         )
         self.image_label.setPixmap(pixmap)
         
@@ -505,7 +514,15 @@ class HomePage(QWidget):
         from .admin_panel import AdminPanelDialog
         dialog = AdminPanelDialog(self.db, self.show_person_details, self.show_person_history, self)
         dialog.exec()
-        self.start_timer()
+        
+        # Check if we should navigate after closing
+        if dialog.selected_person:
+            self.show_person_details(dialog.selected_person, source='admin')
+        elif dialog.history_person:
+            history = self.db.get_person_history(dialog.history_person)
+            self.show_person_history(dialog.history_person, history, source='admin')
+        else:
+            self.start_timer()
 
     def check_nfc_card(self):
         """Poll NFC for pending person verification"""

@@ -30,8 +30,8 @@ class FaceEngine:
             return results
         
         rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
-        # number_of_times_to_upsample=1 helps detect smaller (farther) faces
-        face_locations = face_recognition.face_locations(rgb, number_of_times_to_upsample=1, model='hog') 
+        # Set upsample to 0 for maximum speed/responsiveness as requested
+        face_locations = face_recognition.face_locations(rgb, number_of_times_to_upsample=0, model='hog') 
         encodings = face_recognition.face_encodings(rgb, face_locations)
         all_embeddings = db.get_all_embeddings()
         all_names, all_encodings = zip(*all_embeddings) if all_embeddings else ([], [])
@@ -83,11 +83,11 @@ class FaceEngine:
             name = result['name']
             conf = result.get('confidence', 0)
             
-            # Color: Theme Success (Cyan/Teal) for known, Theme Danger (Neon Red) for unknown
+            # Color: Sky Blue for known, Rose for unknown (matching Midnight theme)
             if name != 'Unknown' and conf > 0.7:
-                color = (191, 212, 45)  # BGR for #2dd4bf (SUCCESS)
+                color = (248, 189, 56)  # BGR for #38bdf8 (PRIMARY)
             else:
-                color = (94, 63, 244)   # BGR for #f43f5e (DANGER)
+                color = (68, 68, 239)   # BGR for #ef4444 (DANGER)
             
             # Draw modern corner markers
             self._draw_corner_markers(frame_copy, (x1, y1), (x2, y2), color, thickness=3, length=25)
