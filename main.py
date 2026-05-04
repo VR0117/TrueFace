@@ -1,6 +1,7 @@
 import sys
 from typing import Any
 from PySide6.QtWidgets import QApplication, QStackedWidget, QMessageBox
+from PySide6.QtCore import QTimer
 
 # -----------------------------
 # Import your pages
@@ -62,7 +63,8 @@ class TrueFaceApp:
         self.home_page: HomePage = HomePage(
             face_engine=self.face_engine,
             db=self.db,
-            show_person_details=self.show_person_details
+            show_person_details=self.show_person_details,
+            show_person_history=self.show_person_history
         )
 
         # Person details page needs callbacks for back navigation and history
@@ -97,27 +99,39 @@ class TrueFaceApp:
         if hasattr(self.home_page, "start_timer"):
             self.home_page.start_timer()
 
-    def show_person_details(self, person_data: Any) -> None:
+    def show_person_details(self, person_data: Any, source: str = 'home') -> None:
         """Show the person details page."""
         if hasattr(self.home_page, "stop_timer"):
             self.home_page.stop_timer()
-        self.details_page.show_person(person_data)
+        
+        self.details_source = source
+        self.details_page.show_person(person_data, source=source)
         self._change_page(2)
 
     def back_to_home_from_details(self) -> None:
-        """Return from details page to home page."""
-        self._change_page(1)
-        if hasattr(self.home_page, "start_timer"):
-            self.home_page.start_timer()
+        """Return from details page to home page or admin panel."""
+        if hasattr(self, 'details_source') and self.details_source == 'admin':
+            self._change_page(1)
+            QTimer.singleShot(100, self.home_page.manage_persons)
+        else:
+            self._change_page(1)
+            if hasattr(self.home_page, "start_timer"):
+                self.home_page.start_timer()
 
-    def show_person_history(self, person_name: str, history_list: list[Any]) -> None:
+    def show_person_history(self, person_name: str, history_list: list[Any], source: str = 'details') -> None:
         """Show the history page for a specific person."""
+        self.history_source = source
         self.history_page.show_history(person_name, history_list)
         self._change_page(3)
 
     def back_to_details_from_history(self) -> None:
-        """Return from history page to details page."""
-        self._change_page(2)
+        """Return from history page to details page or admin panel."""
+        if hasattr(self, 'history_source') and self.history_source == 'admin':
+            self._change_page(1)
+            # Use a slight delay to ensure the page transition completes before opening modal
+            QTimer.singleShot(100, self.home_page.manage_persons)
+        else:
+            self._change_page(2)
 
     # -----------------------------
     # Run the application

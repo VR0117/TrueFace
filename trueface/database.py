@@ -34,6 +34,24 @@ class FaceDatabase:
                 cursor.execute('ALTER TABLE persons ADD COLUMN role TEXT')
             except sqlite3.OperationalError:
                 pass
+            
+            try:
+                cursor.execute('ALTER TABLE persons ADD COLUMN registration_time TEXT')
+                # For existing rows, fallback to entry_time or a default string
+                cursor.execute('UPDATE persons SET registration_time = entry_time WHERE registration_time IS NULL')
+            except sqlite3.OperationalError:
+                pass
+
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS removal_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    last_name TEXT,
+                    role TEXT,
+                    registration_time TEXT,
+                    removal_time TEXT NOT NULL
+                )
+            ''')
             conn.commit()
 
     def add_person(self, name, encoding, data):
@@ -41,9 +59,9 @@ class FaceDatabase:
             cursor = conn.cursor()
             encoding_blob = pickle.dumps(encoding)
             cursor.execute('''
-                INSERT INTO persons (name, last_name, birthday, nfc_uid, encoding, entry_time, role)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (name, data.get('last_name', ''), data.get('birthday', ''), data.get('nfc_uid', ''), encoding_blob, data.get('entry_time', ''), data.get('role', '')))
+                INSERT INTO persons (name, last_name, birthday, nfc_uid, encoding, entry_time, role, registration_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (name, data.get('last_name', ''), data.get('birthday', ''), data.get('nfc_uid', ''), encoding_blob, data.get('entry_time', ''), data.get('role', ''), data.get('entry_time', '')))
             conn.commit()
 
     def update_person(self, original_name, data):
@@ -95,7 +113,7 @@ class FaceDatabase:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM persons')
+            cursor.execute('SELECT * FROM persons ORDER BY registration_time DESC')
             rows = cursor.fetchall()
             return [dict(row) for row in rows]
 
@@ -108,11 +126,32 @@ class FaceDatabase:
             return dict(row) if row else None
 
     def delete_person(self, name):
+        from datetime import datetime
         with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
+            
+            # Fetch details before deleting to archive in removal_history
+            cursor.execute('SELECT * FROM persons WHERE name = ?', (name,))
+            person = cursor.fetchone()
+            
+            if person:
+                cursor.execute('''
+                    INSERT INTO removal_history (name, last_name, role, registration_time, removal_time)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (person['name'], person['last_name'], person['role'], person['registration_time'], datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            
             cursor.execute('DELETE FROM persons WHERE name = ?', (name,))
             conn.commit()
             return cursor.rowcount > 0
+
+    def get_removal_history(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM removal_history ORDER BY removal_time DESC')
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
 
     def match_person(self, encoding, tolerance=0.6):
         import face_recognition
@@ -128,3 +167,31 @@ class FaceDatabase:
         if min_dist <= tolerance:
             return all_names[min_dist_idx]
         return None
+
+    def get_registration_stats(self):
+        from datetime import datetime, timedelta
+        stats = {
+            "total": 0,
+            "this_week": 0,
+            "this_month": 0
+        }
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT registration_time FROM persons')
+            rows = cursor.fetchall()
+            
+            now = datetime.now()
+            
+            for row in rows:
+                stats["total"] += 1
+                reg_time_str = row[0]
+                if reg_time_str:
+                    try:
+                        reg_date = datetime.strptime(reg_time_str, "%Y-%m-%d %H:%M:%S")
+                        if now - reg_date <= timedelta(days=7):
+                            stats["this_week"] += 1
+                        if now.year == reg_date.year and now.month == reg_date.month:
+                            stats["this_month"] += 1
+                    except ValueError:
+                        pass
+        return stats

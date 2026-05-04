@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QFormLayout, QDateEdit, QFrame
 )
 from PySide6.QtCore import Qt, QDate, QPropertyAnimation, QEasingCurve, QPointF
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QColor
 from .database import FaceDatabase
 from datetime import datetime
 from .theme import Theme, apply_subtle_shadow, fade_in
@@ -36,6 +36,7 @@ class PersonDetailsPage(QWidget):
         # Main Card Frame
         self.card_frame = QFrame()
         self.card_frame.setObjectName("MainCard")
+        apply_subtle_shadow(self.card_frame, color=QColor(0,0,0, 150), blur=40, offset=(0, 10))
         self.card_frame.setStyleSheet(f"""
             QFrame#MainCard {{
                 background-color: {Theme.BG_CARD};
@@ -98,25 +99,94 @@ class PersonDetailsPage(QWidget):
         self.btn_layout = QHBoxLayout()
         self.btn_layout.setSpacing(12)
 
-        self.edit_button = QPushButton("Edit")
-        self.save_button = QPushButton("Save Changes")
-        self.cancel_button = QPushButton("Cancel")
-        self.delete_button = QPushButton("Delete")
-        self.history_button = QPushButton("Access Logs")
-        self.back_button = QPushButton("Back")
+        self.back_button = QPushButton("BACK")
+        self.history_button = QPushButton("ACCESS LOGS")
+        self.edit_button = QPushButton("EDIT PROFILE")
+        self.save_button = QPushButton("SAVE CHANGES")
+        self.cancel_button = QPushButton("CANCEL")
+        self.delete_button = QPushButton("DELETE RECORD")
+
+        # Standard button styling
+        btn_style = f"""
+            QPushButton {{
+                background-color: rgba(255, 255, 255, 0.05);
+                color: {Theme.TEXT_MAIN};
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+                padding: 10px 20px;
+                font-weight: 800;
+                font-size: 11px;
+                letter-spacing: 1px;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(255, 255, 255, 0.1);
+                border-color: rgba(255, 255, 255, 0.3);
+            }}
+        """
 
         for btn in [self.edit_button, self.save_button, self.cancel_button,
                     self.delete_button, self.history_button, self.back_button]:
             btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet(btn_style)
 
-        self.delete_button.setStyleSheet(f"QPushButton {{ color: {Theme.DANGER}; border-color: rgba(251,113,133,0.3); background: rgba(251,113,133,0.08); }} QPushButton:hover {{ background: {Theme.DANGER}; color: #fff; }}")
-        self.save_button.setStyleSheet(f"QPushButton {{ color: {Theme.SUCCESS}; border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.08); }} QPushButton:hover {{ background: {Theme.SUCCESS}; color: #fff; }}")
+        # Specialty button overrides
+        self.delete_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(239, 68, 68, 0.1);
+                color: {Theme.DANGER};
+                border: 1px solid rgba(239, 68, 68, 0.3);
+                border-radius: 10px;
+                padding: 10px 20px;
+                font-weight: 800;
+                font-size: 11px;
+                letter-spacing: 1px;
+            }}
+            QPushButton:hover {{
+                background-color: {Theme.DANGER};
+                color: white;
+            }}
+        """)
+        
+        self.save_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(16, 185, 129, 0.1);
+                color: {Theme.SUCCESS};
+                border: 1px solid rgba(16, 185, 129, 0.3);
+                border-radius: 10px;
+                padding: 10px 20px;
+                font-weight: 800;
+                font-size: 11px;
+                letter-spacing: 1px;
+            }}
+            QPushButton:hover {{
+                background-color: {Theme.SUCCESS};
+                color: white;
+            }}
+        """)
+
+        self.history_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(14, 165, 233, 0.15);
+                color: {Theme.ACCENT};
+                border: 1px solid {Theme.ACCENT};
+                border-radius: 12px;
+                padding: 12px 25px;
+                font-weight: 900;
+                font-size: 11px;
+                letter-spacing: 1.5px;
+            }}
+            QPushButton:hover {{
+                background-color: {Theme.ACCENT};
+                color: white;
+            }}
+        """)
 
         self.btn_layout.addWidget(self.back_button)
         self.btn_layout.addWidget(self.history_button)
         self.btn_layout.addWidget(self.edit_button)
         self.btn_layout.addWidget(self.save_button)
         self.btn_layout.addWidget(self.cancel_button)
+        self.btn_layout.addStretch() # Push delete to the right
         self.btn_layout.addWidget(self.delete_button)
         wrapper_layout.addLayout(self.btn_layout)
 
@@ -146,7 +216,8 @@ class PersonDetailsPage(QWidget):
             self.slide_anim.setEasingCurve(QEasingCurve.OutCubic)
             self.slide_anim.start()
 
-    def show_person(self, person_data):
+    def show_person(self, person_data, source='details'):
+        self.source = source
         self.current_person_name = person_data["name"]
 
         db_data = self.db.get_person_details(self.current_person_name)
@@ -184,11 +255,19 @@ class PersonDetailsPage(QWidget):
         self.role_input.setReadOnly(not editable)
         self.nfc_input.setReadOnly(not editable)
 
+        # Admin only buttons
+        is_admin = hasattr(self, 'source') and self.source == 'admin'
+        
         self.save_button.setVisible(editable)
         self.cancel_button.setVisible(editable)
-        self.edit_button.setVisible(not editable)
+        
+        # Edit/Delete/History are ONLY visible if we are an admin AND not currently editing
+        self.edit_button.setVisible(is_admin and not editable)
+        self.delete_button.setVisible(is_admin and not editable)
+        self.history_button.setVisible(is_admin and not editable)
+        
+        # Back button is always visible when not editing
         self.back_button.setVisible(not editable)
-        self.history_button.setVisible(not editable)
 
     def save_person(self):
         new_first = self.first_name_input.text().strip()

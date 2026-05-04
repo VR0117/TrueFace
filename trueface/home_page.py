@@ -1,11 +1,12 @@
 import cv2
 import numpy as np
+import time
 from datetime import datetime
 from PySide6.QtWidgets import (
-    QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QDateEdit
+    QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QDateEdit, QGraphicsOpacityEffect, QFrame
 )
-from PySide6.QtCore import QTimer, Qt, QDate, QThread, Signal
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import QTimer, Qt, QDate, QThread, Signal, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QImage, QPixmap, QColor, QFont
 
 from .camera import Camera, CameraError
 from .face_engine import FaceEngine
@@ -59,16 +60,30 @@ class PersonFormDialog(QDialog):
         self.setStyleSheet(f"""
             QDialog {{
                 background-color: {Theme.BG_CARD};
-                border: 1px solid rgba(255,255,255,0.06);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 24px;
             }}
             QLabel {{
                 color: {Theme.TEXT_SEC};
                 font-weight: 600;
+                font-size: 15px;
             }}
         """)
 
+        apply_subtle_shadow(self, color=QColor(0,0,0, 180), blur=40, offset=(0, 10))
+
         layout = QVBoxLayout()
+        layout.setSpacing(20)
+        layout.setContentsMargins(30, 30, 30, 30)
+
+        title = QLabel("New Registration")
+        title.setFont(QFont("Inter", 24, QFont.Bold))
+        title.setStyleSheet(f"color: {Theme.TEXT_MAIN};")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
         form = QFormLayout()
+        form.setSpacing(15)
 
         self.first_name = QLineEdit()
         self.last_name = QLineEdit()
@@ -83,6 +98,7 @@ class PersonFormDialog(QDialog):
         self.role.setPlaceholderText("e.g. Employee, Guest, Admin")
 
         self.nfc_label = QLabel("Tap NFC card...")
+        self.nfc_label.setStyleSheet(f"color: {Theme.PRIMARY}; font-weight: bold;")
         self.nfc_value = None
 
         self.first_name.setPlaceholderText("First name")
@@ -128,62 +144,97 @@ class PersonFormDialog(QDialog):
 # Home Page (Main Recognition Screen)
 # ==========================
 class HomePage(QWidget):
-    def __init__(self, show_person_details=None, face_engine=None, db=None):
+    def __init__(self, show_person_details=None, show_person_history=None, face_engine=None, db=None):
         super().__init__()
         self.show_person_details = show_person_details
+        self.show_person_history = show_person_history
         self.face_engine = face_engine or FaceEngine()
         self.db = db or FaceDatabase()
         self.nfc = NFCReader()
         self.camera = Camera()
 
         # UI Setup
-        self.image_label = QLabel("Waiting for camera…")
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setMinimumSize(640, 480)
-        self.image_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: #080a10;
-                border: 1px solid rgba(255,255,255,0.04);
-                border-radius: 16px;
-                color: {Theme.TEXT_MUTED};
-                font-size: 14px;
+        # We will use a stacked or absolute-like layout to float elements over the camera feed
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(main_layout)
+        
+        # Container for the camera to allow rounded corners
+        self.camera_container = QFrame()
+        self.camera_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: #050507;
+                border-radius: 20px;
+                border: 1px solid rgba(255, 255, 255, 0.05);
             }}
         """)
+        
+        cam_layout = QVBoxLayout(self.camera_container)
+        cam_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.image_label = QLabel("SYSTEM STANDBY")
+        self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setFont(QFont("Inter", 24, QFont.Bold))
+        self.image_label.setStyleSheet(f"color: {Theme.TEXT_MUTED}; background-color: transparent;")
+        
+        cam_layout.addWidget(self.image_label)
+        
+        # Add a subtle shadow to the camera feed
+        apply_subtle_shadow(self.camera_container, blur=30, offset=(0, 10))
+
+        # Floating controls container
+        self.controls_container = QFrame()
+        self.controls_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {Theme.BG_CARD};
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                border-radius: 25px;
+            }}
+        """)
+        
+        apply_subtle_shadow(self.controls_container, blur=20, offset=(0, 5))
 
         self.status_label = QLabel("Ready")
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setFixedHeight(40)
+        self.status_label.setMinimumWidth(250)
         self.status_label.setStyleSheet(f"""
             QLabel {{
-                font-size: 13px;
-                font-weight: 600;
+                font-size: 14px;
+                font-weight: bold;
                 color: {Theme.TEXT_SEC};
-                background-color: {Theme.BG_CARD};
-                border: 1px solid rgba(255,255,255,0.04);
-                border-radius: 10px;
-                padding: 0 14px;
+                padding: 10px 20px;
             }}
         """)
 
-        self.activate_button = QPushButton("Activate Camera")
-        self.manage_button = QPushButton("Manage Persons")
+        self.activate_button = QPushButton("ACTIVATE FEED")
+        self.manage_button = QPushButton("ADMIN PANEL")
         self.manage_button.clicked.connect(self.manage_persons)
 
         self.activate_button.setCursor(Qt.PointingHandCursor)
         self.manage_button.setCursor(Qt.PointingHandCursor)
 
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(15)
-        buttons_layout.addWidget(self.activate_button)
-        buttons_layout.addWidget(self.manage_button)
+        controls_layout = QHBoxLayout(self.controls_container)
+        controls_layout.setContentsMargins(15, 10, 15, 10)
+        controls_layout.setSpacing(15)
+        controls_layout.addWidget(self.activate_button)
+        controls_layout.addWidget(self.status_label)
+        controls_layout.addWidget(self.manage_button)
 
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(self.image_label, stretch=5)
-        main_layout.addWidget(self.status_label, stretch=0)
-        main_layout.addLayout(buttons_layout)
-        main_layout.setContentsMargins(30, 30, 30, 30)
-        main_layout.setSpacing(20)
-        self.setLayout(main_layout)
+        # Assemble main layout
+        outer_layout = QVBoxLayout()
+        outer_layout.setContentsMargins(40, 40, 40, 40)
+        outer_layout.setSpacing(30)
+        
+        # Top title
+        header = QLabel("SURVEILLANCE MODE")
+        header.setFont(QFont("Inter", 14, QFont.Bold))
+        header.setStyleSheet(f"color: {Theme.PRIMARY}; letter-spacing: 4px;")
+        
+        outer_layout.addWidget(header, alignment=Qt.AlignLeft)
+        outer_layout.addWidget(self.camera_container, stretch=1)
+        outer_layout.addWidget(self.controls_container, alignment=Qt.AlignCenter)
+        
+        main_layout.addLayout(outer_layout)
 
         # Timers
         self.timer = QTimer()
@@ -231,7 +282,8 @@ class HomePage(QWidget):
         try:
             self.camera.open()
             self.timer.start(30)  # ~33fps
-            self.status_label.setText("Camera active")
+            self.update_status("FEED ACTIVE", "color: #10b981;")
+            self.image_label.setText("") # Clear standby text
         except CameraError as e:
             QMessageBox.critical(self, "Camera Error", str(e))
 
@@ -240,6 +292,13 @@ class HomePage(QWidget):
         self.timer.stop()
         if self.camera:
             self.camera.release()
+            
+    def update_status(self, text, style_overrides=""):
+        if text != self.last_status_text:
+            base_style = "font-size: 14px; font-weight: bold; padding: 10px 20px; border-radius: 12px;"
+            self.status_label.setText(text)
+            self.status_label.setStyleSheet(f"{base_style} {style_overrides}")
+            self.last_status_text = text
 
     def register_new_employee(self):
         """Register new person using the face encoding that triggered the prompt."""
@@ -277,23 +336,64 @@ class HomePage(QWidget):
             if frame is None:
                 return
         except CameraError:
-            self.status_label.setText("Camera error")
+            self.update_status("CAMERA ERROR", f"color: {Theme.DANGER};")
             return
 
         # Send frame to background worker (drops frames if worker is busy, keeping UI smooth)
         self.recognition_worker.process_frame(frame)
 
         results = self.last_results
-        # Drawing is fast and runs every frame for a responsive HUD
-        frame = self.face_engine.draw_face_results(frame, results)
+        
+        # We will draw the HUD elements manually to make them look more premium
+        fh, fw = frame.shape[:2]
+        
+        # Scale factors to map from the 480x360 background processing resolution back to the original frame
+        scale_x = fw / 480.0
+        scale_y = fh / 360.0
 
-        # Handle results
-        current_status = ""
-        status_style = ""
+        # Draw Face Boxes
+        for res in results:
+            top, right, bottom, left = res['box']
+            
+            # Apply scaling
+            top = int(top * scale_y)
+            right = int(right * scale_x)
+            bottom = int(bottom * scale_y)
+            left = int(left * scale_x)
+            
+            name = res['name']
+            conf = res.get('confidence', 0.0)
+            
+            is_known = name != 'Unknown' and conf > 0.7
+            color = (129, 185, 16) if is_known else (68, 68, 239) # BGR: Emerald / Red
+            
+            # Draw premium corner brackets instead of full box
+            t, l = 3, 25
+            cv2.line(frame, (left, top), (left+l, top), color, t)
+            cv2.line(frame, (left, top), (left, top+l), color, t)
+            cv2.line(frame, (right, top), (right-l, top), color, t)
+            cv2.line(frame, (right, top), (right, top+l), color, t)
+            cv2.line(frame, (left, bottom), (left+l, bottom), color, t)
+            cv2.line(frame, (left, bottom), (left, bottom-l), color, t)
+            cv2.line(frame, (right, bottom), (right-l, bottom), color, t)
+            cv2.line(frame, (right, bottom), (right, bottom-l), color, t)
+            
+            # Label
+            label = f"{name} {conf:.0%}" if is_known else "UNKNOWN TARGET"
+            
+            # Add a stylish background for text
+            font = cv2.FONT_HERSHEY_DUPLEX
+            font_scale = 0.6
+            text_thickness = 1
+            text_size, _ = cv2.getTextSize(label, font, font_scale, text_thickness)
+            
+            cv2.rectangle(frame, (left, top - 30), (left + text_size[0] + 10, top), (20, 20, 25), -1)
+            # Use cv2.LINE_AA to make the text anti-aliased and clear
+            cv2.putText(frame, label, (left + 5, top - 8), font, font_scale, color, text_thickness, cv2.LINE_AA)
 
+        # Handle results logic
         if not results:
-            current_status = "Scanning…"
-            status_style = f"color: {Theme.TEXT_MUTED}; background-color: {Theme.BG_CARD}; border: 1px solid rgba(255,255,255,0.04);"
+            self.update_status("SCANNING...", f"color: {Theme.PRIMARY};")
             self.pending_person = None
             self.register_mode = True
         else:
@@ -305,7 +405,6 @@ class HomePage(QWidget):
                 self.unknown_face_frames = 0
                 person = self.db.get_person_details(name)
 
-                import time
                 current_time = time.time()
                 last_logged = self.last_log_times.get(name, 0)
                 if current_time - last_logged > 300:
@@ -314,15 +413,12 @@ class HomePage(QWidget):
 
                 if person:
                     self.pending_person = person
-                    current_status = f"Verified — {name}  ·  {conf:.0%}"
-                    status_style = f"color: {Theme.SUCCESS}; border: 1px solid rgba(52, 211, 153, 0.25); background-color: rgba(52, 211, 153, 0.08);"
+                    self.update_status(f"VERIFIED: {name} ({conf:.0%})", f"color: {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);")
                     self.register_mode = False
                 else:
-                    current_status = f"Unknown record — {name}"
-                    status_style = f"color: {Theme.WARNING}; border: 1px solid rgba(251, 191, 36, 0.2); background-color: rgba(251, 191, 36, 0.06);"
+                    self.update_status(f"NO RECORD: {name}", f"color: {Theme.WARNING};")
             else:
-                current_status = "Unknown face detected"
-                status_style = f"color: {Theme.DANGER}; border: 1px solid rgba(251, 113, 133, 0.25); background-color: rgba(251, 113, 133, 0.06);"
+                self.update_status("UNKNOWN SUBJECT DETECTED", f"color: {Theme.DANGER}; background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);")
                 self.pending_person = None
                 self.register_mode = True
 
@@ -335,24 +431,28 @@ class HomePage(QWidget):
                 else:
                     self.unknown_face_frames = 0
 
-        if current_status != self.last_status_text:
-            self.status_label.setText(current_status)
-            self.status_label.setStyleSheet(f"font-size: 13px; font-weight: 600; border-radius: 10px; padding: 0 14px; {status_style}")
-            self.last_status_text = current_status
-
-        # Draw HUD and scanning line
-        fh, fw = frame.shape[:2]
-
-        self.scan_line_y += 5 * self.scan_dir
+        # Scanning line animation
+        self.scan_line_y += 6 * self.scan_dir
         if self.scan_line_y >= fh or self.scan_line_y <= 0:
             self.scan_dir *= -1
 
+        # Glowing scanner line
         overlay = frame.copy()
-        cv2.line(overlay, (0, self.scan_line_y), (fw, self.scan_line_y), (252, 132, 192), 1)
-        cv2.addWeighted(overlay, 0.25, frame, 0.75, 0, frame)
+        cv2.line(overlay, (0, self.scan_line_y), (fw, self.scan_line_y), (246, 130, 59), 2)
+        
+        # Add slight gradient effect to the line area
+        scan_area_top = max(0, self.scan_line_y - 20)
+        scan_area_bottom = min(fh, self.scan_line_y + 20)
+        if scan_area_bottom > scan_area_top:
+            overlay[scan_area_top:scan_area_bottom, :] = cv2.addWeighted(
+                overlay[scan_area_top:scan_area_bottom, :], 0.8, 
+                np.full_like(overlay[scan_area_top:scan_area_bottom, :], (246, 130, 59)), 0.2, 0
+            )
 
-        # Corner brackets (Theme Primary)
-        c, t, l, m = (252, 132, 192), 1, 32, 16
+        cv2.addWeighted(overlay, 0.4, frame, 0.6, 0, frame)
+
+        # High-tech Corner brackets
+        c, t, l, m = (233, 165, 14), 2, 40, 20 # BGR: Cyan
         cv2.line(frame, (m, m), (m+l, m), c, t)
         cv2.line(frame, (m, m), (m, m+l), c, t)
         cv2.line(frame, (fw-m, m), (fw-m-l, m), c, t)
@@ -367,21 +467,31 @@ class HomePage(QWidget):
         h, w, ch = rgb.shape
         bytes_per_line = ch * w
         qt_image = QImage(rgb.data.tobytes(), w, h, bytes_per_line, QImage.Format_RGB888)
-        target_w = max(640, self.image_label.width())
-        target_h = max(480, self.image_label.height())
+        
+        # To handle rounded corners perfectly, we could use QPainter, but setting it to label is faster
+        # We will ensure the label is appropriately sized.
+        target_w = max(640, self.camera_container.width())
+        target_h = max(480, self.camera_container.height())
         pixmap = QPixmap.fromImage(qt_image).scaled(
             target_w, target_h,
-            Qt.KeepAspectRatio, Qt.SmoothTransformation
+            Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
         )
         self.image_label.setPixmap(pixmap)
+        
+        # Round the image label itself using stylesheet mask
+        self.image_label.setStyleSheet(f"""
+            QLabel {{
+                border-radius: 20px;
+            }}
+        """)
 
     def prompt_unknown_registration(self):
         """Prompt user to register an unknown face, or enter cooldown"""
         self.stop_timer()
         reply = QMessageBox.question(
             self,
-            "Unknown Face Detected",
-            "An unknown face was detected. Would you like to register this person now?",
+            "Unknown Subject Detected",
+            "An unregistered individual was detected. Initiate registration process?",
             QMessageBox.Yes | QMessageBox.No
         )
         if reply == QMessageBox.Yes:
@@ -392,8 +502,8 @@ class HomePage(QWidget):
 
     def manage_persons(self):
         self.stop_timer()
-        from .manage_persons_dialog import ManagePersonsDialog
-        dialog = ManagePersonsDialog(self.db, self.show_person_details, self)
+        from .admin_panel import AdminPanelDialog
+        dialog = AdminPanelDialog(self.db, self.show_person_details, self.show_person_history, self)
         dialog.exec()
         self.start_timer()
 
@@ -408,11 +518,9 @@ class HomePage(QWidget):
 
         expected_uid = self.pending_person.get("nfc_uid", "")
         if uid == expected_uid:
-            self.status_label.setText(f"Access granted — {self.pending_person['name']}")
-            self.status_label.setStyleSheet(f"color: {Theme.SUCCESS}; border: 1px solid rgba(52,211,153,0.25); background-color: rgba(52,211,153,0.08); font-size: 13px; font-weight: 600; border-radius: 10px; padding: 0 14px;")
+            self.update_status(f"ACCESS GRANTED: {self.pending_person['name']}", f"color: {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5);")
             if self.show_person_details:
                 self.show_person_details(self.pending_person)
             self.pending_person = None
         else:
-            self.status_label.setText(f"NFC mismatch — {uid}")
-            self.status_label.setStyleSheet(f"color: {Theme.DANGER}; border: 1px solid rgba(251,113,133,0.25); background-color: rgba(251,113,133,0.06); font-size: 13px; font-weight: 600; border-radius: 10px; padding: 0 14px;")
+            self.update_status(f"NFC MISMATCH: {uid}", f"color: {Theme.DANGER};")

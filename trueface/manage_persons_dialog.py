@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (QDialog, QListWidget, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox, QLabel)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QColor
 from trueface.database import FaceDatabase
 from typing import Callable, Optional
 from .theme import Theme, apply_subtle_shadow, fade_in
@@ -13,18 +13,20 @@ class ManagePersonsDialog(QDialog):
         self.show_details = show_details_callback
         self.parent_home = parent
 
-        self.setWindowTitle("Manage Persons")
-        self.setMinimumSize(600, 500)
+        self.setWindowTitle("Manage Database")
+        self.setMinimumSize(650, 550)
         self.setModal(True)
 
+        apply_subtle_shadow(self, color=QColor(0,0,0, 180), blur=40, offset=(0, 10))
+
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(20)
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.setSpacing(25)
 
         # Title
         self.title_label = QLabel("Registered Persons")
-        self.title_label.setFont(QFont(".AppleSystemUIFont", 15, QFont.Bold))
-        self.title_label.setStyleSheet(f"color: {Theme.TEXT_MAIN};")
+        self.title_label.setFont(QFont("Inter", 24, QFont.Bold))
+        self.title_label.setStyleSheet(f"color: {Theme.TEXT_MAIN}; letter-spacing: 1px;")
         layout.addWidget(self.title_label)
 
         # List Widget
