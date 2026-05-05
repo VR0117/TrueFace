@@ -3,7 +3,7 @@ import math
 from .theme import Theme, apply_subtle_shadow, fade_in
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QFrame, QPushButton, QGraphicsOpacityEffect
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, Property, QPointF
-from PySide6.QtGui import QFont, QPainter, QColor, QBrush, QLinearGradient, QPen, QRadialGradient
+from PySide6.QtGui import QFont, QPainter, QColor, QBrush, QLinearGradient, QPen, QRadialGradient, QPixmap
 
 
 # -------------------------------------------------
