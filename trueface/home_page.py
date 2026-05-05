@@ -3,7 +3,7 @@ import numpy as np
 import time
 from datetime import datetime
 from PySide6.QtWidgets import (
-    QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QDateEdit, QGraphicsOpacityEffect, QFrame
+    QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QDateEdit, QGraphicsOpacityEffect, QFrame, QComboBox
 )
 from PySide6.QtCore import QTimer, Qt, QDate, QThread, Signal, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QImage, QPixmap, QColor, QFont
@@ -68,16 +68,46 @@ class PersonFormDialog(QDialog):
                 font-weight: 600;
                 font-size: 15px;
             }}
-            QDateEdit::drop-down {
+            QLineEdit, QDateEdit, QComboBox {{
+                font-size: 14px;
+                padding: 8px 15px;
+                background-color: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+                color: {Theme.TEXT_MAIN};
+                min-height: 40px;
+            }}
+            QLineEdit:focus, QDateEdit:focus, QComboBox:focus {{
+                border: 1px solid {Theme.PRIMARY};
+                background-color: rgba(255, 255, 255, 0.08);
+            }}
+            QComboBox::drop-down {{
                 border: none;
-                background: transparent;
-                width: 25px;
-            }
-            QDateEdit::down-arrow {
-                width: 12px;
-                height: 12px;
-                background: transparent;
-            }
+                width: 30px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid {Theme.TEXT_SEC};
+                margin-right: 10px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: #1e293b;
+                border: 1px solid {Theme.PRIMARY};
+                selection-background-color: {Theme.PRIMARY_DIM};
+                selection-color: {Theme.PRIMARY};
+                outline: none;
+                border-radius: 8px;
+            }}
+            QPushButton {{
+                padding: 10px 25px;
+                border-radius: 12px;
+                font-weight: bold;
+                font-size: 13px;
+                min-width: 100px;
+                min-height: 40px;
+            }}
         """)
 
         apply_subtle_shadow(self, color=QColor(0,0,0, 180), blur=40, offset=(0, 10))
@@ -104,12 +134,17 @@ class PersonFormDialog(QDialog):
         self.birthday.setDateRange(QDate.currentDate().addYears(-100), QDate.currentDate())
         self.birthday.setDate(QDate.currentDate().addYears(-25))
 
-        self.role = QLineEdit()
-        self.role.setPlaceholderText("e.g. Employee, Guest, Admin")
+        self.department = QLineEdit()
+        self.department.setPlaceholderText("e.g. Engineering, Sales, HR")
 
-        self.nfc_label = QLabel("Tap NFC card...")
-        self.nfc_label.setStyleSheet(f"color: {Theme.PRIMARY}; font-weight: bold;")
-        self.nfc_value = None
+        self.position = QComboBox()
+        self.position.addItems(["Employee", "Manager", "Lead", "Intern", "Executive", "Support"])
+        self.position.setCurrentText("Employee")
+
+        self.nfc_label = QLabel("TAP CARD TO READ...")
+        self.nfc_label.setStyleSheet(f"color: {Theme.PRIMARY}; font-weight: 800; font-size: 13px; letter-spacing: 1px;")
+        self.nfc_label.setAlignment(Qt.AlignCenter)
+        self.nfc_label.setFixedHeight(40)
 
         self.first_name.setPlaceholderText("First name")
         self.last_name.setPlaceholderText("Last name")
@@ -117,15 +152,49 @@ class PersonFormDialog(QDialog):
         form.addRow("First Name:", self.first_name)
         form.addRow("Last Name:", self.last_name)
         form.addRow("Birthday:", self.birthday)
-        form.addRow("Role / Dept:", self.role)
+        form.addRow("Department:", self.department)
+        form.addRow("Position:", self.position)
         form.addRow("NFC UID:", self.nfc_label)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-
         layout.addLayout(form)
-        layout.addWidget(buttons)
+        layout.addSpacing(10)
+        
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(15)
+        
+        self.cancel_btn = QPushButton("CANCEL")
+        self.cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(255, 255, 255, 0.05);
+                color: {Theme.TEXT_MAIN};
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }}
+            QPushButton:hover {{
+                background-color: rgba(255, 255, 255, 0.1);
+            }}
+        """)
+        
+        self.ok_btn = QPushButton("REGISTER")
+        self.ok_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {Theme.PRIMARY_DIM};
+                color: {Theme.PRIMARY};
+                border: 1px solid {Theme.PRIMARY};
+            }}
+            QPushButton:hover {{
+                background-color: {Theme.PRIMARY};
+                color: black;
+            }}
+        """)
+        
+        self.cancel_btn.clicked.connect(self.reject)
+        self.ok_btn.clicked.connect(self.accept)
+        
+        buttons_layout.addStretch()
+        buttons_layout.addWidget(self.cancel_btn)
+        buttons_layout.addWidget(self.ok_btn)
+        
+        layout.addLayout(buttons_layout)
         self.setLayout(layout)
 
         self.nfc_reader = NFCReader()
@@ -145,7 +214,9 @@ class PersonFormDialog(QDialog):
             "name": self.first_name.text().strip(),
             "last_name": self.last_name.text().strip(),
             "birthday": self.birthday.date().toString("yyyy-MM-dd"),
-            "role": self.role.text().strip(),
+            "department": self.department.text().strip(),
+            "position": self.position.currentText(),
+            "role": f"{self.position.currentText()} ({self.department.text().strip()})", # For legacy compatibility
             "nfc_uid": self.nfc_value or ""
         }
 
@@ -188,6 +259,7 @@ class HomePage(QWidget):
         self.image_label.setStyleSheet(f"color: {Theme.TEXT_MUTED}; background-color: transparent;")
         
         cam_layout.addWidget(self.image_label)
+        self.image_label.setStyleSheet("border-radius: 20px;")
         
         # Add a subtle shadow to the camera feed
         apply_subtle_shadow(self.camera_container, blur=30, offset=(0, 10))
@@ -486,13 +558,6 @@ class HomePage(QWidget):
             Qt.KeepAspectRatio, Qt.SmoothTransformation
         )
         self.image_label.setPixmap(pixmap)
-        
-        # Round the image label itself using stylesheet mask
-        self.image_label.setStyleSheet(f"""
-            QLabel {{
-                border-radius: 20px;
-            }}
-        """)
 
     def prompt_unknown_registration(self):
         """Prompt user to register an unknown face, or enter cooldown"""

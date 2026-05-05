@@ -20,7 +20,11 @@ class FaceDatabase:
                     birthday TEXT,
                     nfc_uid TEXT,
                     encoding BLOB NOT NULL,
-                    entry_time TEXT
+                    entry_time TEXT,
+                    department TEXT,
+                    position TEXT,
+                    role TEXT,
+                    registration_time TEXT
                 )
             ''')
             cursor.execute('''
@@ -30,17 +34,7 @@ class FaceDatabase:
                     entry_time TEXT NOT NULL
                 )
             ''')
-            try:
-                cursor.execute('ALTER TABLE persons ADD COLUMN role TEXT')
-            except sqlite3.OperationalError:
-                pass
-            
-            try:
-                cursor.execute('ALTER TABLE persons ADD COLUMN registration_time TEXT')
-                # For existing rows, fallback to entry_time or a default string
-                cursor.execute('UPDATE persons SET registration_time = entry_time WHERE registration_time IS NULL')
-            except sqlite3.OperationalError:
-                pass
+            # Ensure removal_history is also updated
 
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS removal_history (
@@ -48,10 +42,28 @@ class FaceDatabase:
                     name TEXT NOT NULL,
                     last_name TEXT,
                     role TEXT,
+                    position TEXT,
+                    department TEXT,
+                    birthday TEXT,
                     registration_time TEXT,
                     removal_time TEXT NOT NULL
                 )
             ''')
+            
+            # Migrate removal_history if needed
+            try:
+                cursor.execute('ALTER TABLE removal_history ADD COLUMN position TEXT')
+            except:
+                pass
+            try:
+                cursor.execute('ALTER TABLE removal_history ADD COLUMN department TEXT')
+            except:
+                pass
+            try:
+                cursor.execute('ALTER TABLE removal_history ADD COLUMN birthday TEXT')
+            except:
+                pass
+                
             conn.commit()
 
     def add_person(self, name, encoding, data):
@@ -59,9 +71,9 @@ class FaceDatabase:
             cursor = conn.cursor()
             encoding_blob = pickle.dumps(encoding)
             cursor.execute('''
-                INSERT INTO persons (name, last_name, birthday, nfc_uid, encoding, entry_time, role, registration_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (name, data.get('last_name', ''), data.get('birthday', ''), data.get('nfc_uid', ''), encoding_blob, data.get('entry_time', ''), data.get('role', ''), data.get('entry_time', '')))
+                INSERT INTO persons (name, last_name, birthday, nfc_uid, encoding, entry_time, role, position, department, registration_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (name, data.get('last_name', ''), data.get('birthday', ''), data.get('nfc_uid', ''), encoding_blob, data.get('entry_time', ''), data.get('role', ''), data.get('position', ''), data.get('department', ''), data.get('entry_time', '')))
             conn.commit()
 
     def update_person(self, original_name, data):
@@ -69,9 +81,9 @@ class FaceDatabase:
             cursor = conn.cursor()
             cursor.execute('''
                 UPDATE persons
-                SET name = ?, last_name = ?, birthday = ?, nfc_uid = ?, role = ?
+                SET name = ?, last_name = ?, birthday = ?, nfc_uid = ?, role = ?, position = ?, department = ?
                 WHERE name = ?
-            ''', (data.get('name'), data.get('last_name', ''), data.get('birthday', ''), data.get('nfc_uid', ''), data.get('role', ''), original_name))
+            ''', (data.get('name'), data.get('last_name', ''), data.get('birthday', ''), data.get('nfc_uid', ''), data.get('role', ''), data.get('position', ''), data.get('department', ''), original_name))
             
             # Also update history table to reflect new name
             if data.get('name') != original_name:
@@ -133,15 +145,37 @@ class FaceDatabase:
             
             # Fetch details before deleting to archive in removal_history
             cursor.execute('SELECT * FROM persons WHERE name = ?', (name,))
-            person = cursor.fetchone()
+            person_row = cursor.fetchone()
             
-            if person:
+            if person_row:
+                p = dict(person_row)
                 cursor.execute('''
-                    INSERT INTO removal_history (name, last_name, role, registration_time, removal_time)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (person['name'], person['last_name'], person['role'], person['registration_time'], datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                    INSERT INTO removal_history (name, last_name, role, position, department, birthday, registration_time, removal_time)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    p.get('name'), 
+                    str(p.get('last_name') or ''), 
+                    str(p.get('role') or ''), 
+                    str(p.get('position') or ''), 
+                    str(p.get('department') or ''), 
+                    str(p.get('birthday') or ''),
+                    str(p.get('registration_time') or ''),
+                    datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                ))
             
             cursor.execute('DELETE FROM persons WHERE name = ?', (name,))
+            # We preserve 'history' records for archival auditing 
+            # until the admin explicitly purges them.
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def permanently_delete_removed_person(self, name):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            # 1. Remove from removal_history
+            cursor.execute('DELETE FROM removal_history WHERE name = ?', (name,))
+            # 2. Remove all access logs
+            cursor.execute('DELETE FROM history WHERE person_name = ?', (name,))
             conn.commit()
             return cursor.rowcount > 0
 
@@ -155,6 +189,7 @@ class FaceDatabase:
 
     def match_person(self, encoding, tolerance=0.6):
         import face_recognition
+        # Setting image_label.setStyleSheet(f"border-radius: 20px;") is handled in GUI initialization to avoid per-frame lag
         all_embeddings = self.get_all_embeddings()
         if not all_embeddings:
             return None
@@ -173,7 +208,8 @@ class FaceDatabase:
         stats = {
             "total": 0,
             "this_week": 0,
-            "this_month": 0
+            "this_month": 0,
+            "total_deleted": 0
         }
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -181,7 +217,6 @@ class FaceDatabase:
             rows = cursor.fetchall()
             
             now = datetime.now()
-            
             for row in rows:
                 stats["total"] += 1
                 reg_time_str = row[0]
@@ -194,4 +229,9 @@ class FaceDatabase:
                             stats["this_month"] += 1
                     except ValueError:
                         pass
+            
+            # Get deleted count
+            cursor.execute('SELECT COUNT(*) FROM removal_history')
+            stats["total_deleted"] = cursor.fetchone()[0]
+
         return stats

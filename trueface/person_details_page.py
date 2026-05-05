@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox,
-    QLineEdit, QFormLayout, QDateEdit, QFrame, QStackedWidget
+    QLineEdit, QFormLayout, QDateEdit, QFrame, QStackedWidget, QComboBox
 )
 from PySide6.QtCore import Qt, QDate, QPropertyAnimation, QEasingCurve, QPointF
 from PySide6.QtGui import QFont, QColor
@@ -53,17 +53,19 @@ class PersonDetailsPage(QWidget):
                 font-weight: 600;
                 font-size: 12px;
             }}
-            QLineEdit, QDateEdit {{
+            QLineEdit, QDateEdit, QComboBox {{
                 font-size: 13px;
                 padding: 10px 14px;
-                background-color: {Theme.BG_INPUT};
-                border: 1px solid rgba(255,255,255,0.04);
+                background-color: transparent;
+                border: 1px solid rgba(255,255,255,0.08);
                 border-radius: 8px;
+                color: {Theme.TEXT_MAIN};
             }}
-            QLineEdit:read-only, QDateEdit:read-only {{
+            QLineEdit:read-only, QDateEdit:read-only, QStackedWidget {{
                 background-color: transparent;
                 border: none;
                 color: {Theme.TEXT_MAIN};
+                padding-left: 0;
             }}
         """)
         card_layout = QVBoxLayout(self.card_frame)
@@ -80,10 +82,12 @@ class PersonDetailsPage(QWidget):
 
         self.first_name_input = QLineEdit()
         self.first_name_input.setFixedHeight(40)
-        self.first_name_input.setStyleSheet("background: transparent; border: none;")
         self.last_name_input = QLineEdit()
         self.last_name_input.setFixedHeight(40)
-        self.last_name_input.setStyleSheet("background: transparent; border: none;")
+        
+        # Apply consistent transparency to inputs (read-only state handles the rest)
+        for inp in [self.first_name_input, self.last_name_input]:
+            inp.setStyleSheet("background: transparent; border: none;")
 
         self.birthday_stack = QStackedWidget()
         self.birthday_stack.setFixedHeight(40)
@@ -99,6 +103,8 @@ class PersonDetailsPage(QWidget):
         self.birthday_edit.setCalendarPopup(True)
         self.birthday_edit.setDisplayFormat("yyyy-MM-dd")
         
+        self.birthday_edit.setStyleSheet(f"border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding-left: 10px;")
+        
         self.birthday_stack.addWidget(self.birthday_view)
         self.birthday_stack.addWidget(self.birthday_edit)
         
@@ -109,9 +115,38 @@ class PersonDetailsPage(QWidget):
             QCalendarWidget QToolButton {{ color: white; font-weight: bold; }}
         """)
 
-        self.role_input = QLineEdit()
-        self.role_input.setFixedHeight(40)
-        self.role_input.setStyleSheet("background: transparent; border: none;")
+        # Department Stack
+        self.department_stack = QStackedWidget()
+        self.department_stack.setFixedHeight(40)
+        
+        self.department_view = QLineEdit()
+        self.department_view.setFixedHeight(40)
+        self.department_view.setReadOnly(True)
+        self.department_view.setStyleSheet("background: transparent; border: none;")
+        
+        self.department_edit = QLineEdit()
+        self.department_edit.setFixedHeight(40)
+        self.department_edit.setPlaceholderText("e.g. Engineering, Sales")
+        self.department_edit.setStyleSheet("border: none; background: transparent;")
+        
+        self.department_stack.addWidget(self.department_view)
+        self.department_stack.addWidget(self.department_edit)
+
+        # Position Stack
+        self.position_stack = QStackedWidget()
+        self.position_stack.setFixedHeight(40)
+        
+        self.position_view = QLineEdit()
+        self.position_view.setFixedHeight(40)
+        self.position_view.setReadOnly(True)
+        self.position_view.setStyleSheet("background: transparent; border: none;")
+        
+        self.position_edit = QComboBox()
+        self.position_edit.setFixedHeight(40)
+        self.position_edit.addItems(["Employee", "Manager", "Lead", "Intern", "Executive", "Support"])
+        
+        self.position_stack.addWidget(self.position_view)
+        self.position_stack.addWidget(self.position_edit)
         self.nfc_input = QLineEdit()
         self.nfc_input.setFixedHeight(40)
         self.nfc_input.setStyleSheet("background: transparent; border: none;")
@@ -131,7 +166,8 @@ class PersonDetailsPage(QWidget):
         add_aligned_row("FIRST NAME", self.first_name_input)
         add_aligned_row("LAST NAME", self.last_name_input)
         add_aligned_row("BIRTHDATE", self.birthday_stack)
-        add_aligned_row("ASSIGNED ROLE", self.role_input)
+        add_aligned_row("DEPARTMENT", self.department_stack)
+        add_aligned_row("POSITION", self.position_stack)
         add_aligned_row("NFC SIGNATURE", self.nfc_input)
         add_aligned_row("LAST VERIFIED", self.last_seen_label)
 
@@ -260,8 +296,10 @@ class PersonDetailsPage(QWidget):
             self.slide_anim.setEasingCurve(QEasingCurve.OutCubic)
             self.slide_anim.start()
 
-    def show_person(self, person_data, source='details'):
-        self.source = source
+    def show_person(self, person_data, source=None):
+        if source:
+            self.source = source
+        # If no source provided, it will use the previously stored self.source
         self.current_person_name = person_data["name"]
 
         db_data = self.db.get_person_details(self.current_person_name)
@@ -283,7 +321,12 @@ class PersonDetailsPage(QWidget):
             if qdate.isValid():
                 self.birthday_edit.setDate(qdate)
         
-        self.role_input.setText(db_data.get("role", ""))
+        self.department_view.setText(db_data.get("department", ""))
+        self.department_edit.setText(db_data.get("department", ""))
+        
+        pos = db_data.get("position", "Employee")
+        self.position_view.setText(pos)
+        self.position_edit.setCurrentText(pos)
         self.nfc_input.setText(db_data.get("nfc_uid", ""))
         self.last_seen_label.setText(db_data.get("entry_time", "NEVER"))
 
@@ -299,13 +342,17 @@ class PersonDetailsPage(QWidget):
     def set_editable(self, editable: bool):
         self.first_name_input.setReadOnly(not editable)
         self.last_name_input.setReadOnly(not editable)
-        self.role_input.setReadOnly(not editable)
         self.nfc_input.setReadOnly(not editable)
         
         self.birthday_stack.setCurrentIndex(1 if editable else 0)
+        self.department_stack.setCurrentIndex(1 if editable else 0)
+        self.position_stack.setCurrentIndex(1 if editable else 0)
+        
         if not editable:
             # Sync view with edit value after saving
             self.birthday_view.setText(self.birthday_edit.date().toString("yyyy-MM-dd"))
+            self.department_view.setText(self.department_edit.text())
+            self.position_view.setText(self.position_edit.currentText())
 
         # Admin only buttons
         is_admin = hasattr(self, 'source') and self.source == 'admin'
@@ -331,7 +378,9 @@ class PersonDetailsPage(QWidget):
             "name": new_first,
             "last_name": self.last_name_input.text().strip(),
             "birthday": self.birthday_edit.date().toString("yyyy-MM-dd"),
-            "role": self.role_input.text().strip(),
+            "department": self.department_edit.text().strip(),
+            "position": self.position_edit.currentText(),
+            "role": f"{self.position_edit.currentText()} ({self.department_edit.text().strip()})", # Legacy
             "nfc_uid": self.nfc_input.text().strip()
         }
 
@@ -349,9 +398,12 @@ class PersonDetailsPage(QWidget):
             QMessageBox.Yes | QMessageBox.No
         )
         if reply == QMessageBox.Yes:
-            self.db.delete_person(self.current_person_name)
-            QMessageBox.information(self, "Deleted", "Record deleted.")
-            self.back_callback()
+            try:
+                self.db.delete_person(self.current_person_name)
+                QMessageBox.information(self, "Deleted", "Record deleted.")
+                self.back_callback()
+            except Exception as e:
+                QMessageBox.critical(self, "Deletion Failed", f"Could not delete record: {e}")
 
     def show_history(self):
         if self.current_person_name and self.history_callback:

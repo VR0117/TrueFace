@@ -53,13 +53,14 @@ class AdminPanelDialog(QDialog):
         stats_layout = QHBoxLayout()
         stats_layout.setSpacing(15)
         
-        self.total_card, self.total_lbl = self.create_stat_card("Total Registered", "0", Theme.PRIMARY)
-        self.week_card, self.week_lbl = self.create_stat_card("New This Week", "0", Theme.SUCCESS)
-        self.month_card, self.month_lbl = self.create_stat_card("New This Month", "0", Theme.ACCENT)
+        self.registered_card, self.registered_lbl = self.create_stat_card("REGISTERED", "0", Theme.PRIMARY)
+        self.deleted_card, self.deleted_lbl = self.create_stat_card("DELETED", "0", Theme.DANGER)
         
-        stats_layout.addWidget(self.total_card)
-        stats_layout.addWidget(self.week_card)
-        stats_layout.addWidget(self.month_card)
+        stats_layout.addStretch()
+        stats_layout.addWidget(self.registered_card)
+        stats_layout.addSpacing(60)
+        stats_layout.addWidget(self.deleted_card)
+        stats_layout.addStretch()
         
         self.layout.addLayout(stats_layout)
 
@@ -210,54 +211,57 @@ class AdminPanelDialog(QDialog):
         self.refresh_data()
 
     def refresh_data(self):
-        # Update Stats
-        stats = self.db.get_registration_stats()
-        self.total_lbl.setText(str(stats["total"]))
-        self.week_lbl.setText(str(stats["this_week"]))
-        self.month_lbl.setText(str(stats["this_month"]))
-        
-        # Update List with Filters
-        self.list_widget.clear()
-        persons = self.db.get_all_persons()
-        
         filter_text = self.filter_box.currentText()
         now = datetime.now()
         
+        # 1. Update Registered Persons & Count
+        self.list_widget.clear()
+        all_persons = self.db.get_all_persons()
         filtered_persons = []
-        for p in persons:
-            reg_time_str = p.get('registration_time')
-            if not reg_time_str:
-                if filter_text == "All Time":
-                    filtered_persons.append(p)
-                continue
-                
-            try:
-                reg_date = datetime.strptime(reg_time_str, "%Y-%m-%d %H:%M:%S")
-                keep = False
-                
-                if filter_text == "All Time":
-                    keep = True
-                elif filter_text == "Today":
-                    keep = reg_date.date() == now.date()
-                elif filter_text == "This Week":
-                    keep = now - reg_date <= timedelta(days=7)
-                elif filter_text == "This Month":
-                    keep = now.year == reg_date.year and now.month == reg_date.month
-                elif filter_text == "This Year":
-                    keep = now.year == reg_date.year
-                elif filter_text == "Custom Range":
-                    start_date = self.date_filter_from.date().toPython()
-                    end_date = self.date_filter_to.date().toPython()
-                    keep = start_date <= reg_date.date() <= end_date
-                
-                if keep:
-                    filtered_persons.append(p)
-            except ValueError:
-                if filter_text == "All Time":
-                    filtered_persons.append(p)
         
-        for p in filtered_persons:
-            self.add_person_item(p)
+        for p in all_persons:
+            reg_time_str = p.get('registration_time')
+            if self.is_in_filter(reg_time_str, filter_text):
+                filtered_persons.append(p)
+                self.add_person_item(p)
+        
+        self.registered_lbl.setText(str(len(filtered_persons)))
+
+        # 2. Update Deleted Persons Count
+        all_deleted = self.db.get_removal_history()
+        filtered_deleted_count = 0
+        for d in all_deleted:
+            rem_time_str = d.get('removal_time')
+            if self.is_in_filter(rem_time_str, filter_text):
+                filtered_deleted_count += 1
+        
+        self.deleted_lbl.setText(str(filtered_deleted_count))
+
+    def is_in_filter(self, time_str, filter_text):
+        if not time_str:
+            return filter_text == "All Time"
+            
+        try:
+            dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+            now = datetime.now()
+            
+            if filter_text == "All Time":
+                return True
+            elif filter_text == "Today":
+                return dt.date() == now.date()
+            elif filter_text == "This Week":
+                return now - dt <= timedelta(days=7)
+            elif filter_text == "This Month":
+                return now.year == dt.year and now.month == dt.month
+            elif filter_text == "This Year":
+                return now.year == dt.year
+            elif filter_text == "Custom Range":
+                start_date = self.date_filter_from.date().toPython()
+                end_date = self.date_filter_to.date().toPython()
+                return start_date <= dt.date() <= end_date
+            return False
+        except ValueError:
+            return filter_text == "All Time"
 
     def add_person_item(self, p):
         item = QListWidgetItem(self.list_widget)
@@ -345,13 +349,230 @@ class AdminPanelDialog(QDialog):
         self.close()
 
     def show_removal_history(self):
-        dialog = PreviousUsersDialog(self.db, self)
+        dialog = PreviousUsersDialog(self.db, self.show_history, self)
         dialog.exec()
 
+class ArchivedDetailsDialog(QDialog):
+    def __init__(self, person, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Archived Information — {person['name']}")
+        self.setMinimumSize(500, 450)
+        self.setModal(True)
+        
+        apply_subtle_shadow(self, color=QColor(0,0,0, 200), blur=40, offset=(0, 10))
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(35, 35, 35, 35)
+        layout.setSpacing(25)
+        
+        # Header
+        header = QHBoxLayout()
+        title_container = QVBoxLayout()
+        title_top = QLabel("PERSONNEL BACKGROUND")
+        title_top.setStyleSheet(f"color: {Theme.TEXT_SEC}; font-size: 9px; font-weight: 800; letter-spacing: 3px;")
+        
+        title = QLabel(f"{person['name']} {person.get('last_name', '')}".upper())
+        title.setFont(QFont("Inter", 20, QFont.Black))
+        title.setStyleSheet("color: white;")
+        
+        title_container.addWidget(title_top)
+        title_container.addWidget(title)
+        
+        close_btn = QPushButton("BACK")
+        close_btn.setFixedSize(90, 36)
+        close_btn.setCursor(Qt.PointingHandCursor)
+        close_btn.clicked.connect(self.close)
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(56, 189, 248, 0.1); 
+                color: {Theme.PRIMARY}; 
+                border: 1px solid {Theme.PRIMARY};
+                border-radius: 10px;
+                font-weight: 800;
+                font-size: 11px;
+            }}
+            QPushButton:hover {{
+                background-color: {Theme.PRIMARY};
+                color: black;
+            }}
+        """)
+        
+        header.addLayout(title_container)
+        header.addStretch()
+        header.addWidget(close_btn)
+        layout.addLayout(header)
+        
+        # Details Grid
+        grid = QVBoxLayout()
+        grid.setSpacing(15)
+        
+        details = [
+            ("ROLE / POSITION", person.get('role') or 'N/A'),
+            ("DEPARTMENT", person.get('department') or 'N/A'),
+            ("BIRTHDAY", person.get('birthday') or 'N/A'),
+            ("REGISTRATION DATE", person.get('registration_time') or 'N/A'),
+            ("REMOVAL DATE", person.get('removal_time') or 'N/A')
+        ]
+        
+        for label, value in details:
+            container = QFrame()
+            container.setStyleSheet(f"""
+                QFrame {{
+                    background-color: rgba(255, 255, 255, 0.02); 
+                    border-radius: 12px; 
+                    border: 1px solid rgba(255, 255, 255, 0.04);
+                }}
+            """)
+            cl = QVBoxLayout(container)
+            cl.setContentsMargins(18, 12, 18, 12)
+            cl.setSpacing(4)
+            
+            l_lbl = QLabel(label)
+            l_lbl.setStyleSheet(f"color: {Theme.PRIMARY}; font-size: 9px; font-weight: 800; letter-spacing: 1px; border: none; background: transparent;")
+            
+            v_lbl = QLabel(str(value))
+            v_lbl.setStyleSheet("color: white; font-size: 15px; font-weight: 600; border: none; background: transparent;")
+            
+            cl.addWidget(l_lbl)
+            cl.addWidget(v_lbl)
+            grid.addWidget(container)
+            
+        layout.addLayout(grid)
+        layout.addStretch()
+
+class ArchivedHistoryDialog(QDialog):
+    def __init__(self, name, history, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Access History — {name}")
+        self.setMinimumSize(650, 550)
+        self.setModal(True)
+        
+        apply_subtle_shadow(self, color=QColor(0,0,0, 200), blur=50, offset=(0, 15))
+        
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(35, 35, 35, 35)
+        layout.setSpacing(25)
+        
+        # Header
+        header = QHBoxLayout()
+        title_container = QVBoxLayout()
+        
+        title_top = QLabel("ARCHIVAL AUDIT")
+        title_top.setStyleSheet(f"color: {Theme.TEXT_SEC}; font-size: 10px; font-weight: 800; letter-spacing: 3px;")
+        
+        title = QLabel(name.upper())
+        title.setFont(QFont("Inter", 24, QFont.Black))
+        title.setStyleSheet(f"color: white; letter-spacing: 1px;")
+        
+        title_container.addWidget(title_top)
+        title_container.addWidget(title)
+        
+        back_btn = QPushButton("BACK")
+        back_btn.setFixedSize(110, 40)
+        back_btn.setCursor(Qt.PointingHandCursor)
+        back_btn.clicked.connect(self.close)
+        back_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(56, 189, 248, 0.1); 
+                color: {Theme.PRIMARY}; 
+                border: 1px solid {Theme.PRIMARY};
+                border-radius: 12px;
+                font-weight: 800;
+                font-size: 11px;
+                letter-spacing: 2px;
+            }}
+            QPushButton:hover {{
+                background-color: {Theme.PRIMARY};
+                color: black;
+            }}
+        """)
+        
+        header.addLayout(title_container)
+        header.addStretch()
+        header.addWidget(back_btn)
+        layout.addLayout(header)
+        
+        # Logs List
+        self.list = QListWidget()
+        self.list.setStyleSheet(f"""
+            QListWidget {{ 
+                background: transparent; 
+                border: none; 
+            }}
+            QListWidget::item {{
+                background: transparent;
+                padding: 0;
+                margin-bottom: 15px;
+            }}
+        """)
+        
+        if not history:
+            lbl = QLabel("No historical access records found for this archived member.")
+            lbl.setAlignment(Qt.AlignCenter)
+            lbl.setStyleSheet(f"color: {Theme.TEXT_MUTED}; font-style: italic; padding: 100px; font-size: 14px; background: transparent;")
+            layout.addWidget(lbl)
+        else:
+            for i, entry in enumerate(reversed(history)):
+                item = QListWidgetItem(self.list)
+                card = QFrame()
+                card.setStyleSheet(f"""
+                    QFrame {{
+                        background-color: rgba(255, 255, 255, 0.03); 
+                        border-radius: 16px; 
+                        border: 1px solid rgba(255, 255, 255, 0.06);
+                    }}
+                    QFrame:hover {{
+                        background-color: rgba(255, 255, 255, 0.05);
+                        border-color: rgba(56, 189, 248, 0.3);
+                    }}
+                """)
+                cl = QHBoxLayout(card)
+                cl.setContentsMargins(25, 20, 25, 20)
+                cl.setSpacing(20)
+                
+                # Left Badge
+                badge = QLabel(str(len(history)-i))
+                badge.setFixedSize(36, 36)
+                badge.setAlignment(Qt.AlignCenter)
+                badge.setStyleSheet(f"""
+                    background: {Theme.PRIMARY_DIM};
+                    color: {Theme.PRIMARY};
+                    border-radius: 18px;
+                    font-weight: 900;
+                    font-size: 12px;
+                    border: 1px solid {Theme.PRIMARY};
+                """)
+                cl.addWidget(badge)
+
+                # Info Layout
+                vl = QVBoxLayout()
+                vl.setSpacing(6)
+                
+                t_lbl = QLabel("VERIFIED ACCESS LOG")
+                t_lbl.setStyleSheet(f"color: {Theme.TEXT_SEC}; font-size: 9px; font-weight: 800; letter-spacing: 1px; background: transparent; border: none;")
+                
+                v_lbl = QLabel(entry)
+                v_lbl.setStyleSheet(f"color: #ffffff; font-size: 16px; font-weight: 700; background: transparent; border: none;")
+                
+                vl.addWidget(t_lbl)
+                vl.addWidget(v_lbl)
+                
+                cl.addLayout(vl)
+                cl.addStretch()
+                
+                status_icon = QLabel("✓")
+                status_icon.setStyleSheet(f"color: {Theme.SUCCESS}; font-size: 22px; font-weight: bold; background: transparent; border: none;")
+                cl.addWidget(status_icon)
+                
+                item.setSizeHint(QSize(0, 95))
+                self.list.setItemWidget(item, card)
+            layout.addWidget(self.list)
+
 class PreviousUsersDialog(QDialog):
-    def __init__(self, db, parent=None):
+    def __init__(self, db, show_history_callback=None, parent=None):
         super().__init__(parent)
         self.db = db
+        self.show_history_callback = show_history_callback
         self.setWindowTitle("Previous Users History")
         self.setMinimumSize(700, 600)
         
@@ -375,16 +596,18 @@ class PreviousUsersDialog(QDialog):
         close_icon_btn.clicked.connect(self.close)
         close_icon_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {Theme.ACCENT};
-                color: #ffffff;
-                border: none;
-                border-radius: 10px;
+                background-color: rgba(56, 189, 248, 0.1); 
+                color: {Theme.PRIMARY}; 
+                border: 1px solid {Theme.PRIMARY};
+                border-radius: 12px;
                 font-weight: 800;
-                font-size: 12px;
-                letter-spacing: 1px;
+                font-size: 11px;
+                letter-spacing: 2px;
+                padding: 0 15px;
             }}
             QPushButton:hover {{
                 background-color: {Theme.PRIMARY};
+                color: black;
             }}
         """)
         
@@ -456,30 +679,111 @@ class PreviousUsersDialog(QDialog):
             status_lbl.setStyleSheet(f"color: {Theme.DANGER}; font-size: 11px; font-weight: 800; letter-spacing: 1px; border: none;")
             
             # History details
-            details_lbl = QLabel(f"Archived former member record.\nRegistration track preserved for administrative history.\nRegistered on: {h['registration_time']}")
+            details_lbl = QLabel(f"Archived former member record.\nRegistration track preserved for administrative history.\nRegistered on: {h.get('registration_time', 'N/A')}")
             details_lbl.setStyleSheet("color: #88888e; font-size: 13px; font-weight: 500; line-height: 1.6; border: none; padding-top: 5px;")
             details_lbl.setWordWrap(True)
-            
+
             # Subtle separator line
             sep = QFrame()
             sep.setFixedHeight(1)
             sep.setStyleSheet("background: rgba(255,255,255,0.05); margin-top: 10px;")
+
+            # High-tech Action Buttons for Archived Users
+            btn_layout = QHBoxLayout()
+            btn_layout.setSpacing(12)
             
+            det_btn = QPushButton("DETAILS")
+            det_btn.setMinimumSize(110, 36)
+            det_btn.setCursor(Qt.PointingHandCursor)
+            det_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba(56, 189, 248, 0.1);
+                    color: {Theme.PRIMARY};
+                    border: 1px solid {Theme.PRIMARY};
+                    border-radius: 8px;
+                    font-size: 10px;
+                    font-weight: 800;
+                    letter-spacing: 1px;
+                }}
+                QPushButton:hover {{
+                    background-color: {Theme.PRIMARY};
+                    color: black;
+                }}
+            """)
+            det_btn.clicked.connect(lambda checked=False, person=h: self.view_details(person))
+
+            logs_btn = QPushButton("ACCESS LOGS")
+            logs_btn.setMinimumSize(110, 36)
+            logs_btn.setCursor(Qt.PointingHandCursor)
+            logs_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba(255, 255, 255, 0.05);
+                    color: white;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 8px;
+                    font-size: 10px;
+                    font-weight: 800;
+                    letter-spacing: 1px;
+                }}
+                QPushButton:hover {{
+                    background-color: white;
+                    color: black;
+                }}
+            """)
+            logs_btn.clicked.connect(lambda checked=False, name=h['name']: self.view_history(name))
+            
+            purge_btn = QPushButton("DELETE")
+            purge_btn.setMinimumSize(110, 36)
+            purge_btn.setCursor(Qt.PointingHandCursor)
+            purge_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: rgba(239, 68, 68, 0.1);
+                    color: {Theme.DANGER};
+                    border: 1px solid {Theme.DANGER};
+                    border-radius: 8px;
+                    font-size: 10px;
+                    font-weight: 800;
+                    letter-spacing: 1px;
+                }}
+                QPushButton:hover {{
+                    background-color: {Theme.DANGER};
+                    color: white;
+                }}
+            """)
+            purge_btn.clicked.connect(lambda checked=False, name=h['name']: self.purge_person(name))
+            
+            btn_layout.addWidget(det_btn)
+            btn_layout.addWidget(logs_btn)
+            btn_layout.addWidget(purge_btn)
+            btn_layout.addStretch()
+
             l.addLayout(header)
             l.addWidget(status_lbl)
             l.addWidget(details_lbl)
+            l.addLayout(btn_layout)
             l.addWidget(sep)
             
             self.scroll_layout.addWidget(card)
 
-    def delete_person(self, name):
-        reply = QMessageBox.question(
-            self, "Confirm Remove",
-            f"Are you sure you want to completely remove '{name}'?",
-            QMessageBox.Yes | QMessageBox.No
+    def view_details(self, person):
+        dialog = ArchivedDetailsDialog(person, self)
+        dialog.exec()
+
+    def view_history(self, name):
+        history = self.db.get_person_history(name)
+        dialog = ArchivedHistoryDialog(name, history, self)
+        dialog.exec()
+
+    def purge_person(self, name):
+        reply = QMessageBox.critical(
+            self, "PERMANENT DELETION",
+            f"WARNING: You are about to permanently purge all data and access logs for '{name}'.\n\nThis action CANNOT be undone. Proceed?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
         )
         if reply == QMessageBox.Yes:
-            if self.db.delete_person(name):
+            if self.db.permanently_delete_removed_person(name):
+                QMessageBox.information(self, "Purged", f"All records for '{name}' have been wiped from the system.")
                 self.refresh_data()
             else:
-                QMessageBox.warning(self, "Error", f"Failed to remove '{name}'.")
+                QMessageBox.warning(self, "Error", f"Failed to purge records for '{name}'.")
