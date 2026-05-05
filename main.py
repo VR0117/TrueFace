@@ -18,6 +18,7 @@ from trueface.person_history_page import PersonHistoryPage
 from trueface.face_engine import FaceEngine
 from trueface.database import FaceDatabase
 from trueface.theme import Theme
+from trueface.utils import get_resource_path
 
 # -----------------------------
 # TrueFace Application
@@ -31,7 +32,8 @@ class TrueFaceApp:
         self.app.setStyleSheet(Theme.STYLE)
         
         # Set Global Window Icon
-        app_icon = QIcon("assets/logo.png")
+        logo_path = get_resource_path("assets/logo.png")
+        app_icon = QIcon(logo_path)
         self.app.setWindowIcon(app_icon)
         
         self.stack = QStackedWidget()

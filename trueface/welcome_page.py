@@ -152,7 +152,9 @@ class WelcomePage(QWidget):
 
         # Brand Logo
         logo_label = QLabel()
-        logo_pixmap = QPixmap("assets/logo.png")
+        from .utils import get_resource_path
+        logo_path = get_resource_path("assets/logo.png")
+        logo_pixmap = QPixmap(logo_path)
         if not logo_pixmap.isNull():
             logo_label.setPixmap(logo_pixmap.scaled(180, 180, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         logo_label.setAlignment(Qt.AlignCenter)
