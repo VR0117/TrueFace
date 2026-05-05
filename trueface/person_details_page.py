@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt, QDate, QPropertyAnimation, QEasingCurve, QPointF
 from PySide6.QtGui import QFont, QColor
 from .database import FaceDatabase
 from datetime import datetime
-from .theme import Theme, apply_subtle_shadow, fade_in
+from .theme import Theme, apply_subtle_shadow, fade_in, style_calendar
 
 
 class PersonDetailsPage(QWidget):
@@ -108,12 +108,7 @@ class PersonDetailsPage(QWidget):
         self.birthday_stack.addWidget(self.birthday_view)
         self.birthday_stack.addWidget(self.birthday_edit)
         
-        # Style the calendar for a "stylish" look
-        self.birthday_edit.calendarWidget().setStyleSheet(f"""
-            QCalendarWidget QWidget {{ background-color: #0f172a; color: white; }}
-            QCalendarWidget QAbstractItemView:enabled {{ color: white; selection-background-color: {Theme.PRIMARY}; selection-color: black; }}
-            QCalendarWidget QToolButton {{ color: white; font-weight: bold; }}
-        """)
+        style_calendar(self.birthday_edit)
 
         # Department Stack
         self.department_stack = QStackedWidget()

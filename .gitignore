@@ -1,5 +1,9 @@
 venv/
+venv39/
 __pycache__/
 *.pyc
+*.spec
+build/
+dist/
 data/
 .DS_Store

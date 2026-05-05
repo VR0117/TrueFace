@@ -12,7 +12,7 @@ from .camera import Camera, CameraError
 from .face_engine import FaceEngine
 from .database import FaceDatabase
 from .nfc_reader import NFCReader
-from .theme import Theme, apply_subtle_shadow, fade_in
+from .theme import Theme, apply_subtle_shadow, fade_in, style_calendar
 
 
 # ==========================
@@ -130,6 +130,7 @@ class PersonFormDialog(QDialog):
 
         self.birthday = QDateEdit()
         self.birthday.setCalendarPopup(True)
+        style_calendar(self.birthday)
         self.birthday.setDisplayFormat("yyyy-MM-dd")
         self.birthday.setDateRange(QDate.currentDate().addYears(-100), QDate.currentDate())
         self.birthday.setDate(QDate.currentDate().addYears(-25))

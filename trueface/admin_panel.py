@@ -6,7 +6,7 @@ from PySide6.QtGui import QFont, QColor
 from datetime import datetime, timedelta
 from trueface.database import FaceDatabase
 from typing import Callable
-from .theme import Theme, apply_subtle_shadow
+from .theme import Theme, apply_subtle_shadow, style_calendar
 
 class AdminPanelDialog(QDialog):
     def __init__(self, db: FaceDatabase, show_details_callback: Callable, show_history_callback: Callable = None, parent=None):
@@ -96,6 +96,7 @@ class AdminPanelDialog(QDialog):
         self.date_filter_from.setDate(QDate.currentDate().addDays(-7))
         self.date_filter_from.setVisible(False)
         self.date_filter_from.setStyleSheet(f"QDateEdit {{ padding: 5px; border-radius: 6px; }}")
+        style_calendar(self.date_filter_from)
         self.date_filter_from.dateChanged.connect(self.on_start_date_changed)
         
         self.to_lbl = QLabel("UNTIL")
@@ -108,6 +109,7 @@ class AdminPanelDialog(QDialog):
         self.date_filter_to.setMinimumDate(self.date_filter_from.date())
         self.date_filter_to.setVisible(False)
         self.date_filter_to.setStyleSheet(f"QDateEdit {{ padding: 5px; border-radius: 6px; }}")
+        style_calendar(self.date_filter_to)
         self.date_filter_to.dateChanged.connect(self.refresh_data)
         
         history_btn = QPushButton("PREVIOUS USERS")

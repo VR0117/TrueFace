@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDate, QSize
 from PySide6.QtGui import QFont
-from .theme import Theme
+from .theme import Theme, style_calendar
 from datetime import datetime, timedelta
 
 
@@ -72,6 +72,7 @@ class PersonHistoryPage(QWidget):
         self.date_from.setCalendarPopup(True)
         self.date_from.setDate(QDate.currentDate().addDays(-7))
         self.date_from.setVisible(False)
+        style_calendar(self.date_from)
         self.date_from.dateChanged.connect(self.on_start_date_changed)
 
         self.to_lbl = QLabel("UNTIL")
@@ -82,6 +83,7 @@ class PersonHistoryPage(QWidget):
         self.date_to.setCalendarPopup(True)
         self.date_to.setDate(QDate.currentDate())
         self.date_to.setVisible(False)
+        style_calendar(self.date_to)
         self.date_to.dateChanged.connect(self.apply_filter)
 
         filter_layout.addWidget(filter_lbl)

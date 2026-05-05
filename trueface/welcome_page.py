@@ -164,7 +164,7 @@ class WelcomePage(QWidget):
         # Title with massive, stylish brand presence
         title = QLabel("TrueFace")
         title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("Inter", 110, QFont.Black)) 
+        title.setFont(QFont("Inter", 210, QFont.Black)) 
         title.setStyleSheet(f"""
             QLabel {{
                 color: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 {Theme.PRIMARY});

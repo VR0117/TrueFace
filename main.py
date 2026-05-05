@@ -1,7 +1,7 @@
 import sys
 from typing import Any
-from PySide6.QtWidgets import QApplication, QStackedWidget, QMessageBox
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtWidgets import QApplication, QStackedWidget, QMessageBox, QSystemTrayIcon, QMenu
+from PySide6.QtGui import QIcon, QPixmap, QAction
 from PySide6.QtCore import QTimer
 
 # -----------------------------
@@ -35,6 +35,11 @@ class TrueFaceApp:
         logo_path = get_resource_path("assets/logo.png")
         app_icon = QIcon(logo_path)
         self.app.setWindowIcon(app_icon)
+        
+        # -----------------------------
+        # Setup System Tray (Persistence)
+        # -----------------------------
+        self._setup_tray(app_icon)
         
         self.stack = QStackedWidget()
         self.stack.setWindowIcon(app_icon)
@@ -95,6 +100,38 @@ class TrueFaceApp:
         self.stack.addWidget(self.details_page)  # index 2
         self.stack.addWidget(self.history_page)  # index 3
 
+    def _setup_tray(self, icon: QIcon) -> None:
+        """Setup system tray icon and menu for persistence."""
+        self.tray_icon = QSystemTrayIcon(icon, self.app)
+        
+        tray_menu = QMenu()
+        show_action = QAction("Open TrueFace", tray_menu)
+        show_action.triggered.connect(self.restore_window)
+        
+        quit_action = QAction("Quit Application", tray_menu)
+        quit_action.triggered.connect(self.quit_app)
+        
+        tray_menu.addAction(show_action)
+        tray_menu.addSeparator()
+        tray_menu.addAction(quit_action)
+        
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.activated.connect(self.on_tray_activated)
+        self.tray_icon.show()
+        
+    def on_tray_activated(self, reason):
+        if reason == QSystemTrayIcon.Trigger:
+            self.restore_window()
+
+    def restore_window(self):
+        self.stack.show()
+        self.stack.activateWindow()
+        self.stack.raise_()
+
+    def quit_app(self):
+        self.tray_icon.hide()
+        QApplication.quit()
+
     # -----------------------------
     # Navigation callbacks
     # -----------------------------
@@ -150,6 +187,23 @@ class TrueFaceApp:
         self.stack.setWindowTitle("TrueFace Security")
         self.stack.setMinimumSize(1100, 750)
         self.stack.resize(1100, 750)
+        
+        # Override closeEvent to hide to tray
+        def close_event(event):
+            if self.tray_icon.isVisible():
+                self.stack.hide()
+                event.ignore()
+                self.tray_icon.showMessage(
+                    "TrueFace Security",
+                    "Application is still running in the background.",
+                    QSystemTrayIcon.Information,
+                    2000
+                )
+            else:
+                event.accept()
+        
+        self.stack.closeEvent = close_event
+        
         self.stack.show()
         sys.exit(self.app.exec())
 
