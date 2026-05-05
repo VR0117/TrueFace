@@ -734,10 +734,10 @@ class PreviousUsersDialog(QDialog):
             """)
             logs_btn.clicked.connect(lambda checked=False, name=h['name']: self.view_history(name))
             
-            purge_btn = QPushButton("DELETE")
-            purge_btn.setMinimumSize(110, 36)
-            purge_btn.setCursor(Qt.PointingHandCursor)
-            purge_btn.setStyleSheet(f"""
+            delete_btn = QPushButton("DELETE")
+            delete_btn.setMinimumSize(110, 36)
+            delete_btn.setCursor(Qt.PointingHandCursor)
+            delete_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: rgba(239, 68, 68, 0.1);
                     color: {Theme.DANGER};
@@ -752,11 +752,11 @@ class PreviousUsersDialog(QDialog):
                     color: white;
                 }}
             """)
-            purge_btn.clicked.connect(lambda checked=False, name=h['name']: self.purge_person(name))
+            delete_btn.clicked.connect(lambda checked=False, name=h['name']: self.delete_person(name))
             
             btn_layout.addWidget(det_btn)
             btn_layout.addWidget(logs_btn)
-            btn_layout.addWidget(purge_btn)
+            btn_layout.addWidget(delete_btn)
             btn_layout.addStretch()
 
             l.addLayout(header)
@@ -776,16 +776,17 @@ class PreviousUsersDialog(QDialog):
         dialog = ArchivedHistoryDialog(name, history, self)
         dialog.exec()
 
-    def purge_person(self, name):
-        reply = QMessageBox.critical(
-            self, "PERMANENT DELETION",
-            f"WARNING: You are about to permanently purge all data and access logs for '{name}'.\n\nThis action CANNOT be undone. Proceed?",
+    def delete_person(self, name):
+        confirm = QMessageBox.warning(
+            self, "Confirm Delete",
+            f"WARNING: You are about to permanently delete all data and access logs for '{name}'.\n\nThis action CANNOT be undone. Proceed?",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
-        if reply == QMessageBox.Yes:
-            if self.db.permanently_delete_removed_person(name):
-                QMessageBox.information(self, "Purged", f"All records for '{name}' have been wiped from the system.")
+        
+        if confirm == QMessageBox.Yes:
+            if self.db.delete_person(name):
+                QMessageBox.information(self, "Deleted", f"All records for '{name}' have been wiped from the system.")
                 self.refresh_data()
             else:
-                QMessageBox.warning(self, "Error", f"Failed to purge records for '{name}'.")
+                QMessageBox.warning(self, "Error", f"Failed to delete records for '{name}'.")

@@ -165,7 +165,7 @@ class FaceDatabase:
             
             cursor.execute('DELETE FROM persons WHERE name = ?', (name,))
             # We preserve 'history' records for archival auditing 
-            # until the admin explicitly purges them.
+            # until the admin explicitly deletes them.
             conn.commit()
             return cursor.rowcount > 0
 
