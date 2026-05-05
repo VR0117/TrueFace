@@ -1,6 +1,7 @@
 import sys
 from typing import Any
 from PySide6.QtWidgets import QApplication, QStackedWidget, QMessageBox
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtCore import QTimer
 
 # -----------------------------
@@ -28,7 +29,13 @@ class TrueFaceApp:
         # -----------------------------
         self.app = QApplication(sys.argv)
         self.app.setStyleSheet(Theme.STYLE)
+        
+        # Set Global Window Icon
+        app_icon = QIcon("assets/logo.png")
+        self.app.setWindowIcon(app_icon)
+        
         self.stack = QStackedWidget()
+        self.stack.setWindowIcon(app_icon)
 
         # -----------------------------
         # Initialize FaceEngine (OpenCV only)

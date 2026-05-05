@@ -150,6 +150,15 @@ class WelcomePage(QWidget):
         card_layout.setSpacing(15)
         card_layout.setContentsMargins(60, 80, 60, 80)
 
+        # Brand Logo
+        logo_label = QLabel()
+        logo_pixmap = QPixmap("assets/logo.png")
+        if not logo_pixmap.isNull():
+            logo_label.setPixmap(logo_pixmap.scaled(180, 180, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        logo_label.setAlignment(Qt.AlignCenter)
+        card_layout.addWidget(logo_label)
+        card_layout.addSpacing(10)
+
         # Title with massive, stylish brand presence
         title = QLabel("TrueFace")
         title.setAlignment(Qt.AlignCenter)

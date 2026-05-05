@@ -13,6 +13,7 @@ def build():
         "--noconfirm", # Overwrite existing dist
         "--clean",
         "--add-data=trueface:trueface", # Include source package
+        "--add-data=assets:assets", # Include logo and assets
         "main.py"
     ]
     
