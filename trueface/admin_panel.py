@@ -459,7 +459,7 @@ class ArchivedHistoryDialog(QDialog):
         header = QHBoxLayout()
         title_container = QVBoxLayout()
         
-        title_top = QLabel("ARCHIVAL AUDIT")
+        title_top = QLabel("PAST RECORDS")
         title_top.setStyleSheet(f"color: {Theme.TEXT_SEC}; font-size: 10px; font-weight: 800; letter-spacing: 3px;")
         
         title = QLabel(name.upper())
@@ -681,7 +681,7 @@ class PreviousUsersDialog(QDialog):
             status_lbl.setStyleSheet(f"color: {Theme.DANGER}; font-size: 11px; font-weight: 800; letter-spacing: 1px; border: none;")
             
             # History details
-            details_lbl = QLabel(f"Archived former member record.\nRegistration track preserved for administrative history.\nRegistered on: {h.get('registration_time', 'N/A')}")
+            details_lbl = QLabel(f"Record for a previous member.\nPreserved for historical reference.\nRegistered on: {h.get('registration_time', 'N/A')}")
             details_lbl.setStyleSheet("color: #88888e; font-size: 13px; font-weight: 500; line-height: 1.6; border: none; padding-top: 5px;")
             details_lbl.setWordWrap(True)
 

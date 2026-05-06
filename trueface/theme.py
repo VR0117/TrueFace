@@ -113,19 +113,26 @@ class Theme:
     /* ── Scrollbars ───────────────────────────────────────────────────── */
     QScrollBar:vertical {{
         border: none;
-        background: transparent;
-        width: 6px;
-        margin: 4px 2px;
+        background: rgba(255, 255, 255, 0.03);
+        width: 10px;
+        margin: 0px;
+        border-radius: 5px;
     }}
 
     QScrollBar::handle:vertical {{
-        background: rgba(255,255,255,0.15);
-        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.25);
+        border-radius: 5px;
         min-height: 40px;
+        margin: 2px;
     }}
 
     QScrollBar::handle:vertical:hover {{
-        background: rgba(255,255,255,0.3);
+        background: rgba(255, 255, 255, 0.45);
+    }}
+
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+        border: none;
+        background: none;
     }}
 
     /* ── Calendar Widget ────────────────────────────────────────────────── */
