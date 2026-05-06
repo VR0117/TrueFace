@@ -18,7 +18,7 @@ class FaceDatabase:
                     name TEXT UNIQUE NOT NULL,
                     last_name TEXT,
                     birthday TEXT,
-                    nfc_uid TEXT,
+                    nfc_uid TEXT UNIQUE,
                     encoding BLOB NOT NULL,
                     entry_time TEXT,
                     department TEXT,
@@ -61,6 +61,12 @@ class FaceDatabase:
                 pass
             try:
                 cursor.execute('ALTER TABLE removal_history ADD COLUMN birthday TEXT')
+            except:
+                pass
+            
+            # Ensure NFC UID is unique
+            try:
+                cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_nfc_uid ON persons(nfc_uid) WHERE nfc_uid IS NOT NULL AND nfc_uid != ""')
             except:
                 pass
                 

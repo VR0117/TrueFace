@@ -408,6 +408,10 @@ class HomePage(QWidget):
             QMessageBox.warning(self, "Error", "No valid face encoding found to register.")
             return
 
+        if not data["nfc_uid"]:
+            QMessageBox.warning(self, "Input Error", "A valid NFC card must be scanned to complete registration.")
+            return
+
         data["entry_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.db.add_person(data["name"], self.last_unknown_encoding, data)
         QMessageBox.information(self, "Success", f"'{data['name']}' registered successfully!")
@@ -592,13 +596,24 @@ class HomePage(QWidget):
 
     def check_nfc_card(self):
         """Poll NFC for pending person verification"""
-        if not self.pending_person:
-            return
-
         uid = self.nfc.read_uid()
         if not uid:
             return
 
+        # Case 1: No person detected by face yet
+        if not self.pending_person:
+            # Check if this UID belongs to anyone
+            person_by_nfc = self.db.get_person_by_nfc(uid)
+            if person_by_nfc:
+                # Registered card, but no face detected
+                self.update_status("WAITING FOR FACE...", f"color: {Theme.WARNING};")
+            else:
+                # Unregistered card
+                self.update_status("IDENTITY MISMATCH", f"color: {Theme.DANGER};")
+                QMessageBox.critical(self, "Access Denied", "Identity doesn't match.\nNFC Card not recognized by the system.")
+            return
+
+        # Case 2: Person detected by face, checking NFC match
         expected_uid = self.pending_person.get("nfc_uid", "")
         if uid == expected_uid:
             self.update_status(f"ACCESS GRANTED: {self.pending_person['name']}", f"color: {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5);")
@@ -606,4 +621,7 @@ class HomePage(QWidget):
                 self.show_person_details(self.pending_person)
             self.pending_person = None
         else:
-            self.update_status(f"NFC MISMATCH: {uid}", f"color: {Theme.DANGER};")
+            # IDENTITY MISMATCH: Face is one person, NFC is another (or wrong)
+            self.update_status("IDENTITY MISMATCH", f"color: {Theme.DANGER};")
+            QMessageBox.critical(self, "Security Alert", f"Identity doesn't match.\nThe person detected does not match the NFC card owner.")
+            self.pending_person = None
