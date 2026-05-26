@@ -3,8 +3,12 @@ import numpy as np
 import pickle
 import os
 
+from .utils import get_user_data_dir
+
 class FaceDatabase:
-    def __init__(self, db_path='data/embeddings.db'):
+    def __init__(self, db_path=None):
+        if db_path is None:
+            db_path = os.path.join(get_user_data_dir(), 'embeddings.db')
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self.db_path = db_path
         self._init_db()

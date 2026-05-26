@@ -13,10 +13,17 @@ def get_resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 
+def get_user_data_dir():
+    """Get absolute path for persistent user data."""
+    data_dir = os.path.expanduser('~/.trueface/data')
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
 def ensure_dirs():
     '''Ensure data directories exist.'''
-    os.makedirs('data/known_faces', exist_ok=True)
-    os.makedirs('data/logs', exist_ok=True)
+    data_dir = get_user_data_dir()
+    os.makedirs(os.path.join(data_dir, 'known_faces'), exist_ok=True)
+    os.makedirs(os.path.join(data_dir, 'logs'), exist_ok=True)
 
 def preprocess_frame(frame):
     '''Preprocess frame for better face detection/recognition.
