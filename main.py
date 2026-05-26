@@ -188,19 +188,10 @@ class TrueFaceApp:
         self.stack.setMinimumSize(1100, 750)
         self.stack.resize(1100, 750)
         
-        # Override closeEvent to hide to tray
+        # Override closeEvent to fully quit the app instead of hiding to tray
         def close_event(event):
-            if self.tray_icon.isVisible():
-                self.stack.hide()
-                event.ignore()
-                self.tray_icon.showMessage(
-                    "TrueFace Security",
-                    "Application is still running in the background.",
-                    QSystemTrayIcon.Information,
-                    2000
-                )
-            else:
-                event.accept()
+            self.quit_app()
+            event.accept()
         
         self.stack.closeEvent = close_event
         

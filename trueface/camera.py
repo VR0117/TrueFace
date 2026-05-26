@@ -28,6 +28,7 @@ class Camera:
             return
 
         import sys
+        import time
         if sys.platform == 'darwin':
             backends = [cv2.CAP_AVFOUNDATION, cv2.CAP_ANY]
         elif sys.platform == 'win32':
@@ -35,16 +36,28 @@ class Camera:
         else:
             backends = [cv2.CAP_V4L2, cv2.CAP_ANY]
 
-        for backend in backends:
-            cap = cv2.VideoCapture(self.index, backend)
-            if cap is not None and cap.isOpened():
-                # Test read a frame
-                ret, frame = cap.read()
-                if ret and frame is not None and frame.size > 0:
-                    self.cap = cap
-                    print(f"✅ Camera opened successfully with backend {backend}")
-                    return
-                cap.release()
+        # Try the provided index first, then fallbacks
+        indices_to_try = []
+        if self.index not in indices_to_try:
+            indices_to_try.append(self.index)
+        for i in [0, 1, 2]:
+            if i not in indices_to_try:
+                indices_to_try.append(i)
+
+        for idx in indices_to_try:
+            for backend in backends:
+                cap = cv2.VideoCapture(idx, backend)
+                if cap is not None and cap.isOpened():
+                    # Test read a frame with retries to allow camera warm-up
+                    for _ in range(10):
+                        ret, frame = cap.read()
+                        if ret and frame is not None and frame.size > 0:
+                            self.cap = cap
+                            self.index = idx  # Update index to the successful one
+                            print(f"✅ Camera opened successfully at index {idx} with backend {backend}")
+                            return
+                        time.sleep(0.1)
+                    cap.release()
 
         raise CameraError(f"Unable to open camera at index {self.index} with any backend.")
 
