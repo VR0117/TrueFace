@@ -476,7 +476,7 @@ class HomePage(QWidget):
             name = res['name']
             conf = res.get('confidence', 0.0)
             
-            is_known = name != 'Unknown' and conf > 0.7
+            is_known = name != 'Unknown' and conf > 0.45
             color = (129, 185, 16) if is_known else (68, 68, 239) # BGR: Emerald / Red
             
             # Draw premium corner brackets instead of full box
@@ -506,8 +506,9 @@ class HomePage(QWidget):
         # Handle results logic based on state machine
         if self.auth_state == "AWAITING_NFC":
             elapsed = time.time() - self.nfc_await_start_time
-            remaining = max(0, int(6.0 - elapsed))
-            if elapsed > 6.0:
+            remaining = max(0, int(12.0 - elapsed))
+            if elapsed > 12.0:
+                print(f"[NFC] Timeout waiting for card for {self.pending_person['name']}")
                 self.auth_state = "SCANNING"
                 self.pending_person = None
                 self.update_status("SCANNING...", f"color: {Theme.PRIMARY};")
@@ -524,15 +525,16 @@ class HomePage(QWidget):
                 name = result['name']
                 conf = result.get('confidence', 0.0)
 
-                if name != 'Unknown' and conf > 0.7:
+                if name != 'Unknown' and conf > 0.45:
                     self.unknown_face_frames = 0
                     person = self.db.get_person_details(name)
+                    print(f"[FACE] Recognized: {name} | confidence={conf:.2f} | nfc_uid={person.get('nfc_uid') if person else 'N/A'}")
 
                     if person:
                         self.auth_state = "AWAITING_NFC"
                         self.pending_person = person
                         self.nfc_await_start_time = time.time()
-                        self.update_status(f"TAP NFC CARD: {name} (6s)", f"color: {Theme.WARNING}; background-color: rgba(248, 189, 56, 0.15); border: 1px solid rgba(248, 189, 56, 0.4);")
+                        self.update_status(f"TAP NFC CARD: {name} (12s)", f"color: {Theme.WARNING}; background-color: rgba(248, 189, 56, 0.15); border: 1px solid rgba(248, 189, 56, 0.4);")
                     else:
                         self.update_status(f"NO RECORD: {name}", f"color: {Theme.WARNING};")
                 else:
@@ -633,6 +635,7 @@ class HomePage(QWidget):
         # If in AWAITING_NFC state
         if self.auth_state == "AWAITING_NFC" and self.pending_person:
             expected_uid = (self.pending_person.get("nfc_uid") or "").upper().strip()
+            print(f"[NFC] Scanned: {uid!r} | Expected: {expected_uid!r} | Match: {uid == expected_uid}")
             if uid == expected_uid and expected_uid:
                 # ACCESS GRANTED
                 self.update_status(f"ACCESS GRANTED: {self.pending_person['name']}", f"color: {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5);")
