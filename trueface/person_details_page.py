@@ -369,6 +369,16 @@ class PersonDetailsPage(QWidget):
             QMessageBox.warning(self, "Input Error", "First Name cannot be empty.")
             return
 
+        new_nfc = self.nfc_input.text().strip()
+        if new_nfc:
+            existing = self.db.get_person_by_nfc(new_nfc)
+            if existing and existing["name"] != self.current_person_name:
+                QMessageBox.warning(
+                    self, "NFC Card In Use", 
+                    f"The NFC UID '{new_nfc}' is already registered to '{existing['name']}'. Each person must have a unique NFC card."
+                )
+                return
+
         new_data = {
             "name": new_first,
             "last_name": self.last_name_input.text().strip(),
@@ -376,7 +386,7 @@ class PersonDetailsPage(QWidget):
             "department": self.department_edit.text().strip(),
             "position": self.position_edit.currentText(),
             "role": f"{self.position_edit.currentText()} ({self.department_edit.text().strip()})", # Legacy
-            "nfc_uid": self.nfc_input.text().strip()
+            "nfc_uid": new_nfc
         }
 
         try:

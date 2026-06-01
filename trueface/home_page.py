@@ -52,8 +52,10 @@ class RecognitionWorker(QThread):
 # Person Registration Dialog
 # ==========================
 class PersonFormDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, db, parent=None):
         super().__init__(parent)
+        self.db = db
+        self.nfc_value = None
         self.setWindowTitle("Register Person")
         self.setMinimumWidth(450)
 
@@ -206,6 +208,13 @@ class PersonFormDialog(QDialog):
     def detect_nfc(self):
         uid = self.nfc_reader.read_uid()
         if uid:
+            existing = self.db.get_person_by_nfc(uid)
+            if existing:
+                QMessageBox.warning(
+                    self, "NFC Card In Use", 
+                    f"This NFC card is already registered to '{existing['name']}'. Each person must have a unique NFC card."
+                )
+                return
             self.nfc_value = uid
             self.nfc_label.setText(uid)
             self.nfc_timer.stop()
@@ -331,6 +340,8 @@ class HomePage(QWidget):
         self.activate_button.clicked.connect(self.start_timer)
 
         # State
+        self.auth_state = "SCANNING"
+        self.nfc_await_start_time = 0.0
         self.pending_person = None
         self.register_mode = False
         self.unknown_face_frames = 0
@@ -358,6 +369,8 @@ class HomePage(QWidget):
             self.activate_button.hide()
             
         # Reset state when returning to scanning page
+        self.auth_state = "SCANNING"
+        self.pending_person = None
         self.last_results = []
         self.unknown_face_frames = 0
         self.unknown_cooldown_timer.start(5000) # Give 5 seconds grace period when returning
@@ -387,13 +400,17 @@ class HomePage(QWidget):
 
     def register_new_employee(self):
         """Register new person using the face encoding that triggered the prompt."""
-        form = PersonFormDialog(self)
+        form = PersonFormDialog(self.db, self)
         if form.exec() != QDialog.Accepted:
             return
 
         data = form.get_data()
         if not data["name"]:
             QMessageBox.warning(self, "Input Error", "First name is required.")
+            return
+
+        if not data["nfc_uid"]:
+            QMessageBox.warning(self, "Input Error", "A valid NFC card must be scanned to complete registration.")
             return
 
         if data["nfc_uid"]:
@@ -408,8 +425,13 @@ class HomePage(QWidget):
             QMessageBox.warning(self, "Error", "No valid face encoding found to register.")
             return
 
-        if not data["nfc_uid"]:
-            QMessageBox.warning(self, "Input Error", "A valid NFC card must be scanned to complete registration.")
+        # Check facial data uniqueness
+        matched_name = self.db.match_person(self.last_unknown_encoding)
+        if matched_name:
+            QMessageBox.warning(
+                self, "Registration Error", 
+                f"This individual's face is already registered under the name: '{matched_name}'. Each face can only be registered once."
+            )
             return
 
         data["entry_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -480,45 +502,50 @@ class HomePage(QWidget):
             # Use cv2.LINE_AA to make the text anti-aliased and clear
             cv2.putText(frame, label, (left + 5, top - 8), font, font_scale, color, text_thickness, cv2.LINE_AA)
 
-        # Handle results logic
-        if not results:
-            self.update_status("SCANNING...", f"color: {Theme.PRIMARY};")
-            self.pending_person = None
-            self.register_mode = True
-        else:
-            result = results[0]
-            name = result['name']
-            conf = result.get('confidence', 0.0)
-
-            if name != 'Unknown' and conf > 0.7:
-                self.unknown_face_frames = 0
-                person = self.db.get_person_details(name)
-
-                current_time = time.time()
-                last_logged = self.last_log_times.get(name, 0)
-                if current_time - last_logged > 300:
-                    self.db.log_entry(name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                    self.last_log_times[name] = current_time
-
-                if person:
-                    self.pending_person = person
-                    self.update_status(f"VERIFIED: {name} ({conf:.0%})", f"color: {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);")
-                    self.register_mode = False
-                else:
-                    self.update_status(f"NO RECORD: {name}", f"color: {Theme.WARNING};")
-            else:
-                self.update_status("UNKNOWN SUBJECT DETECTED", f"color: {Theme.DANGER}; background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);")
+        # Handle results logic based on state machine
+        if self.auth_state == "AWAITING_NFC":
+            elapsed = time.time() - self.nfc_await_start_time
+            remaining = max(0, int(6.0 - elapsed))
+            if elapsed > 6.0:
+                self.auth_state = "SCANNING"
                 self.pending_person = None
-                self.register_mode = True
+                self.update_status("SCANNING...", f"color: {Theme.PRIMARY};")
+            else:
+                self.update_status(f"TAP NFC CARD: {self.pending_person['name']} ({remaining}s)", f"color: {Theme.WARNING}; background-color: rgba(248, 189, 56, 0.15); border: 1px solid rgba(248, 189, 56, 0.4);")
+        
+        else: # SCANNING state
+            if not results:
+                self.update_status("SCANNING...", f"color: {Theme.PRIMARY};")
+                self.pending_person = None
+                self.unknown_face_frames = 0
+            else:
+                result = results[0]
+                name = result['name']
+                conf = result.get('confidence', 0.0)
 
-                if not self.unknown_cooldown_timer.isActive():
-                    self.unknown_face_frames += 1
-                    self.last_unknown_encoding = result.get('encoding')
-                    if self.unknown_face_frames >= 90:  # Require 3 seconds of continuous unknown face
-                        self.prompt_unknown_registration()
-                        self.unknown_face_frames = 0
-                else:
+                if name != 'Unknown' and conf > 0.7:
                     self.unknown_face_frames = 0
+                    person = self.db.get_person_details(name)
+
+                    if person:
+                        self.auth_state = "AWAITING_NFC"
+                        self.pending_person = person
+                        self.nfc_await_start_time = time.time()
+                        self.update_status(f"TAP NFC CARD: {name} (6s)", f"color: {Theme.WARNING}; background-color: rgba(248, 189, 56, 0.15); border: 1px solid rgba(248, 189, 56, 0.4);")
+                    else:
+                        self.update_status(f"NO RECORD: {name}", f"color: {Theme.WARNING};")
+                else:
+                    self.update_status("UNKNOWN SUBJECT DETECTED", f"color: {Theme.DANGER}; background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);")
+                    self.pending_person = None
+
+                    if not self.unknown_cooldown_timer.isActive():
+                        self.unknown_face_frames += 1
+                        self.last_unknown_encoding = result.get('encoding')
+                        if self.unknown_face_frames >= 40:  # Require ~1.5 seconds (40 frames at 25fps) of continuous unknown face - fast and responsive!
+                            self.prompt_unknown_registration()
+                            self.unknown_face_frames = 0
+                    else:
+                        self.unknown_face_frames = 0
 
         # Scanning line animation
         self.scan_line_y += 6 * self.scan_dir
@@ -600,28 +627,43 @@ class HomePage(QWidget):
         if not uid:
             return
 
-        # Case 1: No person detected by face yet
-        if not self.pending_person:
-            # Check if this UID belongs to anyone
-            person_by_nfc = self.db.get_person_by_nfc(uid)
-            if person_by_nfc:
-                # Registered card, but no face detected
-                self.update_status("WAITING FOR FACE...", f"color: {Theme.WARNING};")
+        # If in AWAITING_NFC state
+        if self.auth_state == "AWAITING_NFC" and self.pending_person:
+            expected_uid = self.pending_person.get("nfc_uid", "")
+            if uid == expected_uid:
+                # ACCESS GRANTED
+                self.update_status(f"ACCESS GRANTED: {self.pending_person['name']}", f"color: {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5);")
+                
+                # Log entry
+                self.db.log_entry(self.pending_person['name'], datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                
+                # Show details page
+                if self.show_person_details:
+                    self.show_person_details(self.pending_person)
+                
+                # Reset state
+                self.auth_state = "SCANNING"
+                self.pending_person = None
             else:
-                # Unregistered card
-                self.update_status("IDENTITY MISMATCH", f"color: {Theme.DANGER};")
-                QMessageBox.critical(self, "Access Denied", "Identity doesn't match.\nNFC Card not recognized by the system.")
+                # IDENTITY MISMATCH: Scanned card belongs to another user or is wrong
+                self.update_status("IDENTITY MISMATCH", f"color: {Theme.DANGER}; background-color: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5);")
+                self.stop_timer()
+                
+                card_owner = self.db.get_person_by_nfc(uid)
+                if card_owner:
+                    error_msg = f"Identity mismatch!\nThe scanned card belongs to '{card_owner['name']}', but the detected face is '{self.pending_person['name']}'."
+                else:
+                    error_msg = f"Identity mismatch!\nThe scanned card is not registered to '{self.pending_person['name']}'."
+                
+                QMessageBox.critical(self, "Security Alert - Access Denied", error_msg)
+                
+                # Reset state and resume camera
+                self.auth_state = "SCANNING"
+                self.pending_person = None
+                self.start_timer()
             return
-
-        # Case 2: Person detected by face, checking NFC match
-        expected_uid = self.pending_person.get("nfc_uid", "")
-        if uid == expected_uid:
-            self.update_status(f"ACCESS GRANTED: {self.pending_person['name']}", f"color: {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5);")
-            if self.show_person_details:
-                self.show_person_details(self.pending_person)
-            self.pending_person = None
+        
+        # If in SCANNING state
         else:
-            # IDENTITY MISMATCH: Face is one person, NFC is another (or wrong)
-            self.update_status("IDENTITY MISMATCH", f"color: {Theme.DANGER};")
-            QMessageBox.critical(self, "Security Alert", f"Identity doesn't match.\nThe person detected does not match the NFC card owner.")
-            self.pending_person = None
+            # Let the user know they need to scan their face first
+            self.update_status("DETECTING FACE FIRST...", f"color: {Theme.WARNING};")
