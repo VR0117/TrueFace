@@ -208,6 +208,7 @@ class PersonFormDialog(QDialog):
     def detect_nfc(self):
         uid = self.nfc_reader.read_uid()
         if uid:
+            uid = uid.upper().strip()  # Normalize before storing
             existing = self.db.get_person_by_nfc(uid)
             if existing:
                 QMessageBox.warning(
@@ -627,10 +628,12 @@ class HomePage(QWidget):
         if not uid:
             return
 
+        uid = uid.upper().strip()  # Normalize scanned UID
+
         # If in AWAITING_NFC state
         if self.auth_state == "AWAITING_NFC" and self.pending_person:
-            expected_uid = self.pending_person.get("nfc_uid", "")
-            if uid == expected_uid:
+            expected_uid = (self.pending_person.get("nfc_uid") or "").upper().strip()
+            if uid == expected_uid and expected_uid:
                 # ACCESS GRANTED
                 self.update_status(f"ACCESS GRANTED: {self.pending_person['name']}", f"color: {Theme.SUCCESS}; background-color: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5);")
                 

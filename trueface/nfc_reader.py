@@ -34,7 +34,7 @@ class NFCReader:
             data, sw1, sw2 = connection.transmit(uid_apdu)
 
             if sw1 == 0x90 and sw2 == 0x00 and data:
-                uid = ''.join(['%02X' % b for b in data])
+                uid = ''.join(['%02X' % b for b in data]).upper().strip()
                 return uid
             else:
                 return None
